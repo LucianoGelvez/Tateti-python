@@ -36,7 +36,6 @@ Este juego requiere tener instalado Python 3 en tu sistema. No se necesitan bibl
 
 1. Clona este repositorio en tu máquina local:
 
-```bash
 git clone https://github.com/lucianogelvez/tateti-python.git
 cd tateti-python
 
@@ -45,6 +44,7 @@ python3 tateti.py
 
 ### Ejemplo de salida
 
+```bash
 Welcome to Ta Te Ti!
 Start the player 1!
 Player 1, choose 'X' or 'O': x
@@ -60,5 +60,6 @@ Player 2's turn:
 Player 2 enter a position (1-9): 1
  | | 
 -----
- |X| 
+ |X|
+-----
 O| | 
