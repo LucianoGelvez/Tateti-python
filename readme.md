@@ -1,48 +1,47 @@
-# Ta Te Ti (Tic-Tac-Toe)
+# Ta-te-ti or Tic-Tac-Toe 
 
-Este es un sencillo juego de Ta Te Ti (Tic-Tac-Toe) implementado en Python. El juego permite que dos jugadores se enfrenten entre sí en una cuadrícula de 3x3, con la opción de continuar jugando después de cada partida.
+This is a simple Tic-Tac-Toe game implemented in Python. The game allows two players to face off on a 3x3 grid, with the option to continue playing after each match.
 
-## Reglas del juego
+## Game Rules
 
-- El juego se juega en una cuadrícula de 3x3.
-- Dos jugadores toman turnos para colocar sus marcas ("X" o "O") en una posición vacía del tablero.
-- El primer jugador en formar una fila, columna o diagonal de tres marcas iguales gana el juego.
-- Si todas las posiciones del tablero están llenas y ningún jugador ha formado una fila, columna o diagonal, el juego termina en empate.
-  
-## Características
+- The game is played on a 3x3 grid.
+- Two players take turns placing their marks ("X" or "O") on an empty spot on the board.
+- The first player to form a row, column, or diagonal of three identical marks wins the game.
+- If all positions on the board are filled and no player has formed a row, column, or diagonal, the game ends in a tie.
 
-- Elección aleatoria de qué jugador comienza.
-- El primer jugador puede elegir si juega con "X" o "O".
-- Verificación automática de ganador.
-- Opción para jugar nuevamente al final de cada partida.
+## Features
 
-## Cómo jugar
+- Random selection of which player starts.
+- The first player can choose whether to play with "X" or "O".
+- Automatic winner detection.
+- Option to play again at the end of each game.
 
-1. El primer jugador es seleccionado aleatoriamente.
-2. El jugador seleccionado elige si jugará con "X" o "O".
-3. Cada jugador, en su turno, ingresa un número entre 1 y 9 para colocar su marca en el tablero en la posición correspondiente:
+## How to Play
 
+1. The first player is selected randomly.
+2. The selected player chooses whether to play with "X" or "O".
+3. Each player, on their turn, enters a number between 1 and 9 to place their mark on the board in the corresponding position:
 
-4. El juego continúa alternando entre los dos jugadores hasta que uno de ellos forme una fila, columna o diagonal de tres marcas iguales, o hasta que el tablero esté lleno (empate).
-5. Al final del juego, se puede optar por jugar nuevamente.
+4. The game continues alternating between the two players until one of them forms a row, column, or diagonal of three identical marks, or until the board is full (tie).
+5. At the end of the game, there is an option to play again.
 
-## Ejecución del juego
+## Running the Game
 
-### Requisitos
+### Requirements
 
-Este juego requiere tener instalado Python 3 en tu sistema. No se necesitan bibliotecas externas.
+This game requires Python 3 to be installed on your system. No external libraries are needed.
 
-### Instalación
+### Installation
 
-1. Clona este repositorio en tu máquina local:
+1. Clone this repository to your local machine:
 
 git clone https://github.com/lucianogelvez/tateti-python.git
 cd tateti-python
 
-2. Ejecuta el script de Python para iniciar el juego:
+2. Run the Python script to start the game:
 python3 tateti.py
 
-### Ejemplo de salida
+### Example Output
 
 ```bash
 Welcome to Ta Te Ti!
