@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Diorama 3D — El Faro</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="pill" id="progress">0 / 0</div>
+    <div class="pill" id="timer">00:00</div>
+    <div class="spacer"></div>
+    <button id="btn-ref" title="Mostrar u ocultar la miniatura de referencia">Referencia</button>
+    <button id="btn-shuffle" title="Reordenar las piezas sueltas">Reordenar</button>
+    <button id="btn-sound" title="Sonido">Sonido: sí</button>
+    <button id="btn-vr" class="hidden accent">Entrar en VR</button>
+    <button id="btn-menu">Menú</button>
+  </div>
+  <div id="hint" class="hidden"></div>
+
+  <div id="menu" class="overlay">
+    <div class="card">
+      <h1>Diorama 3D</h1>
+      <p class="sub">Rompecabezas tridimensional · <b>El Faro</b></p>
+
+      <label>Cantidad de piezas</label>
+      <div class="seg" id="seg-count">
+        <button data-v="20">20</button>
+        <button data-v="40" class="on">40</button>
+        <button data-v="80">80</button>
+        <button data-v="150">150</button>
+      </div>
+
+      <label>Modo</label>
+      <div class="seg" id="seg-mode">
+        <button data-v="relax" class="on">Relajado</button>
+        <button data-v="classic">Clásico</button>
+      </div>
+      <p class="note" id="mode-note"></p>
+
+      <div class="row">
+        <button id="btn-start" class="accent big">Nuevo rompecabezas</button>
+        <button id="btn-continue" class="big hidden">Continuar</button>
+      </div>
+      <button id="btn-vr-menu" class="big hidden">Jugar en VR (Meta Quest)</button>
+      <p class="note" id="vr-note"></p>
+
+      <details>
+        <summary>Controles</summary>
+        <ul>
+          <li><b>Ratón:</b> arrastra una pieza para moverla; arrastra el fondo para girar la cámara; rueda para acercar.</li>
+          <li><b>Modo clásico:</b> clic derecho (o Mayús + arrastrar) gira la pieza; <kbd>Q</kbd>/<kbd>E</kbd> la hacen rodar.</li>
+          <li><b>Rueda mientras arrastras:</b> acerca o aleja la pieza.</li>
+          <li><b>Táctil:</b> un dedo mueve piezas o la cámara; pellizco para el zoom.</li>
+          <li><b>VR:</b> gatillo o agarre para tomar una pieza (cerca de la mano o apuntando con el rayo); la palanca la acerca o aleja. Junta dos piezas vecinas y se unirán solas.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+
+  <div id="done" class="overlay hidden">
+    <div class="card small">
+      <h1>¡Completado!</h1>
+      <p class="sub" id="done-text"></p>
+      <div class="row">
+        <button id="btn-admire" class="big">Contemplar</button>
+        <button id="btn-again" class="accent big">Jugar de nuevo</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

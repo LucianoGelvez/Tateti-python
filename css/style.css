@@ -1,0 +1,56 @@
+:root {
+  --ink: #1d2733;
+  --paper: rgba(250, 247, 240, 0.94);
+  --accent: #d2553f;
+  --accent-ink: #fff;
+  --line: rgba(29, 39, 51, 0.16);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe0ea; color: var(--ink);
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.hidden { display: none !important; }
+
+button { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line);
+  border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: transform .08s, background .15s; }
+button:hover { background: #fff; }
+button:active { transform: scale(0.97); }
+button.accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+button.accent:hover { background: #bf4632; }
+button.big { padding: 12px 20px; font-weight: 600; flex: 1; }
+
+#hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+#hud > * { pointer-events: auto; }
+#hud .spacer { flex: 1; }
+.pill { background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px;
+  font-variant-numeric: tabular-nums; font-weight: 600; }
+#hint { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(29, 39, 51, 0.72);
+  color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 14px; max-width: calc(100% - 32px); text-align: center; pointer-events: none; }
+
+.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(20, 45, 60, 0.35); backdrop-filter: blur(6px); overflow: auto; }
+#done { background: transparent; backdrop-filter: none; align-items: flex-end; pointer-events: none; }
+#done .card { pointer-events: auto; margin-bottom: 24px; }
+.card { background: var(--paper); border-radius: 22px; padding: 28px; width: min(460px, 100%);
+  box-shadow: 0 20px 60px rgba(10, 30, 45, 0.3); }
+.card.small { width: min(380px, 100%); text-align: center; }
+h1 { margin: 0; font-size: 34px; letter-spacing: -0.02em; }
+.sub { margin: 4px 0 18px; opacity: 0.75; }
+label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; margin: 14px 0 6px; }
+.seg { display: flex; gap: 6px; }
+.seg button { flex: 1; border-radius: 12px; }
+.seg button.on { background: var(--ink); color: #fff; }
+.row { display: flex; gap: 8px; margin-top: 18px; }
+#btn-vr-menu { width: 100%; margin-top: 8px; }
+.note { font-size: 13px; opacity: 0.7; margin: 8px 0 0; min-height: 1em; }
+details { margin-top: 14px; font-size: 14px; }
+summary { cursor: pointer; font-weight: 600; }
+ul { padding-left: 18px; margin: 8px 0 0; }
+li { margin-bottom: 6px; line-height: 1.35; }
+kbd { background: #fff; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; font-size: 12px; }
+
+@media (max-width: 560px) {
+  #hud button { padding: 6px 10px; font-size: 13px; }
+  .card { padding: 20px; }
+  h1 { font-size: 28px; }
+}
