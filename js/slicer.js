@@ -62,9 +62,18 @@ export function slice(model, count, seed) {
 
   // --- recorte ---
   const out = Array.from({ length: count }, () => new Map()); // material -> {pos, col, nrm, uv}
+  // Lista de números que crece sola sobre un Float32Array: con modelos de cientos de miles de
+  // triángulos ocupa una fracción de lo que ocuparía una lista común de JavaScript.
+  class Buf {
+    constructor() { this.a = new Float32Array(1024); this.n = 0; }
+    room(k) { if (this.n + k > this.a.length) { const b = new Float32Array(Math.max(this.a.length * 2, this.n + k)); b.set(this.a); this.a = b; } }
+    push2(x, y) { this.room(2); const a = this.a; a[this.n++] = x; a[this.n++] = y; }
+    push3(x, y, z) { this.room(3); const a = this.a; a[this.n++] = x; a[this.n++] = y; a[this.n++] = z; }
+    view() { return this.a.subarray(0, this.n); }
+  }
   const bucket = (cell, mat) => {
     let b = out[cell].get(mat);
-    if (!b) { b = { pos: [], col: [], nrm: [], uv: [] }; out[cell].set(mat, b); }
+    if (!b) { b = { pos: new Buf(), col: new Buf(), nrm: new Buf(), uv: new Buf() }; out[cell].set(mat, b); }
     return b;
   };
   const distC = new Float64Array(count);
@@ -138,10 +147,10 @@ export function slice(model, count, seed) {
         const ar = Math.hypot(e1y * e2z - e1z * e2y, e1z * e2x - e1x * e2z, e1x * e2y - e1y * e2x);
         if (ar < 1e-10) continue;
         for (const base of [0, b1, b2]) {
-          O.pos.push(poly[base], poly[base + 1], poly[base + 2]);
-          O.uv.push(poly[base + 3], poly[base + 4]);
-          O.nrm.push(poly[base + 5], poly[base + 6], poly[base + 7]);
-          O.col.push(r, g, b);
+          O.pos.push3(poly[base], poly[base + 1], poly[base + 2]);
+          if (UV) O.uv.push2(poly[base + 3], poly[base + 4]);
+          O.nrm.push3(poly[base + 5], poly[base + 6], poly[base + 7]);
+          O.col.push3(r, g, b);
         }
       }
     }
@@ -154,15 +163,15 @@ export function slice(model, count, seed) {
     // se concatenan los materiales de la celda, anotando el tramo de cada uno
     const mats = [...out[s].keys()].sort((x, y) => x - y);
     let nVerts = 0;
-    for (const m of mats) nVerts += out[s].get(m).pos.length / 3;
+    for (const m of mats) nVerts += out[s].get(m).pos.n / 3;
     const pos = new Float32Array(nVerts * 3), col = new Float32Array(nVerts * 3), nrm = new Float32Array(nVerts * 3);
     const uv = UV ? new Float32Array(nVerts * 2) : null;
     const groups = [];
     let at = 0;
     for (const m of mats) {
-      const b = out[s].get(m), n = b.pos.length / 3;
-      pos.set(b.pos, at * 3); col.set(b.col, at * 3); nrm.set(b.nrm, at * 3);
-      if (uv) uv.set(b.uv, at * 2);
+      const b = out[s].get(m), n = b.pos.n / 3;
+      pos.set(b.pos.view(), at * 3); col.set(b.col.view(), at * 3); nrm.set(b.nrm.view(), at * 3);
+      if (uv) uv.set(b.uv.view(), at * 2);
       groups.push({ mat: m, start: at, count: n });
       at += n;
     }

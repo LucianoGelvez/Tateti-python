@@ -12,6 +12,7 @@
   <div id="hud" class="hidden">
     <div class="pill" id="progress">0 / 0</div>
     <div class="pill" id="timer">00:00</div>
+    <div class="pill hidden" id="fps">– fps</div>
     <div class="spacer"></div>
     <button id="btn-ref" title="Mostrar u ocultar la miniatura de referencia">Referencia</button>
     <button id="btn-shuffle" title="Reordenar las piezas sueltas">Reordenar</button>
@@ -25,7 +26,7 @@
   <div id="menu" class="overlay">
     <div class="card">
       <h1>Diorama 3D</h1>
-      <p class="sub">Rompecabezas tridimensional · <span id="version">v0.8</span></p>
+      <p class="sub">Rompecabezas tridimensional · <span id="version">v0.9</span></p>
 
       <label for="sel-puzzle">Rompecabezas</label>
       <select id="sel-puzzle"></select>
@@ -33,10 +34,9 @@
 
       <label>Cantidad de piezas</label>
       <div class="seg" id="seg-count">
-        <button data-v="20">20</button>
-        <button data-v="40" class="on">40</button>
-        <button data-v="80">80</button>
-        <button data-v="150">150</button>
+        <button data-v="25">25</button>
+        <button data-v="50" class="on">50</button>
+        <button data-v="100">100</button>
       </div>
 
       <label>Modo</label>
@@ -49,6 +49,7 @@
       <label>Ajustes</label>
       <label class="check"><input type="checkbox" id="opt-daynight"> Ciclo de día y noche</label>
       <label class="check"><input type="checkbox" id="opt-timer"> Mostrar el tiempo</label>
+      <label class="check"><input type="checkbox" id="opt-fps"> Mostrar cuadros por segundo (para medir el rendimiento)</label>
 
       <div class="row">
         <button id="btn-start" class="accent big">Nuevo rompecabezas</button>

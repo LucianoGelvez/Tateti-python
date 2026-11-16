@@ -6,7 +6,7 @@
 // Abre el juego en un navegador sin ventana, carga el diorama <id> y:
 //   - saca capturas desde varios ángulos (de día, de noche, de cerca y a ras del suelo),
 //   - mide triángulos, tamaño y efectos,
-//   - arma el rompecabezas entero con 40 y con 150 piezas para comprobar que todo encaja,
+//   - arma el rompecabezas entero con 50 y con 100 piezas para comprobar que todo encaja,
 //   - junta los errores de la consola.
 // Imprime un informe JSON y termina con código 1 si algo falla.
 const http = require('http');
@@ -82,12 +82,12 @@ const server = http.createServer((req, res) => {
     // --- el rompecabezas: cortar, mirar las piezas y armarlo entero ---
     await page.evaluate(() => { __game.orbit.az = 0.35; __game.orbit.pol = 1.02; __game.orbit.dist = 1.85; __game.setPhase(0.03); document.getElementById('menu').classList.remove('hidden'); });
     report.puzzles = [];
-    for (const count of [40, 150]) {
+    for (const count of [50, 100]) {
       await page.click(`#seg-count button[data-v="${count}"]`);
       await page.click('#btn-start');
       await page.waitForFunction(() => __game.state.playing, null, { timeout: 60000 });
       await page.waitForTimeout(500);
-      if (count === 40) await page.screenshot({ path: path.join(out, '10-piezas.png') });
+      if (count === 50) await page.screenshot({ path: path.join(out, '10-piezas.png') });
       const r = await page.evaluate(() => {
         const s = __game.state;
         const tris = s.pieces.map((q) => q.mesh.geometry.attributes.position.count / 3);
@@ -101,7 +101,7 @@ const server = http.createServer((req, res) => {
       if (!r.solved) report.problems.push(`Con ${count} piezas el rompecabezas no se pudo armar entero.`);
       if (r.isolatedPieces) report.problems.push(`Con ${count} piezas hay ${r.isolatedPieces} piezas sin vecinas.`);
       if (r.tinyPieces > count * 0.1) report.warnings.push(`Con ${count} piezas, ${r.tinyPieces} son diminutas (menos de 6 triángulos): suele indicar partes sueltas o muy finas.`);
-      if (count === 40) { await page.waitForTimeout(2500); await page.evaluate(() => document.getElementById('done').classList.add('hidden')); await page.screenshot({ path: path.join(out, '11-armado.png') }); }
+      if (count === 50) { await page.waitForTimeout(2500); await page.evaluate(() => document.getElementById('done').classList.add('hidden')); await page.screenshot({ path: path.join(out, '11-armado.png') }); }
       await page.evaluate(() => { document.getElementById('btn-again').click(); });
       await page.waitForTimeout(200);
     }

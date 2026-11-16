@@ -138,12 +138,12 @@ function placeShowcase() {
 // ---------------------------------------------------------------- estado
 const state = {
   pieces: [], groups: new Set(), total: 0,
-  count: 40, mode: 'relax', seed: 1,
+  count: 50, mode: 'relax', seed: 1,
   elapsed: 0, playing: false, inGame: false, complete: false, finale: null,
 };
 const sfx = new Sfx();
 const SETTINGS_KEY = 'diorama3d-settings-v1';
-const settings = { showTimer: false, dayNight: true };
+const settings = { showTimer: false, dayNight: true, showFps: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* valores por defecto */ }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* nada */ } }
 const anims = new Set();   // mallas deslizándose a su sitio tras un encastre
@@ -433,6 +433,7 @@ const panel = (() => {
   return { cv, tex, mesh, ctx: cv.getContext('2d') };
 })();
 let lastHudSec = -1;
+let fpsNow = 0, fpsFrames = 0, fpsTime = 0; // cuadros por segundo, promediados cada segundo
 function updateHud(force) {
   const sec = Math.floor(state.elapsed);
   if (!force && sec === lastHudSec) return;
@@ -442,6 +443,8 @@ function updateHud(force) {
   $('progress').textContent = prog;
   $('timer').textContent = fmtTime(state.elapsed);
   $('timer').classList.toggle('hidden', !settings.showTimer);
+  $('fps').classList.toggle('hidden', !settings.showFps);
+  $('fps').textContent = `${fpsNow} fps`;
   const { ctx, cv, tex } = panel;
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = 'rgba(250,247,240,0.95)';
@@ -450,7 +453,8 @@ function updateHud(force) {
   ctx.font = '600 58px system-ui, sans-serif';
   ctx.fillText(state.complete ? '¡Completado!' : prog, cv.width / 2, 84);
   ctx.font = '44px system-ui, sans-serif'; ctx.globalAlpha = 0.7;
-  ctx.fillText(settings.showTimer ? `${model.name} · ${fmtTime(state.elapsed)}` : model.name, cv.width / 2, 150, cv.width - 40);
+  const extra = [settings.showTimer ? fmtTime(state.elapsed) : '', settings.showFps ? `${fpsNow} fps` : ''].filter(Boolean).join(' · ');
+  ctx.fillText(extra ? `${model.name} · ${extra}` : model.name, cv.width / 2, 150, cv.width - 40);
   ctx.globalAlpha = 1;
   tex.needsUpdate = true;
 }
@@ -807,7 +811,7 @@ const MODE_NOTES = {
   relax: 'Las piezas empiezan bien orientadas. En VR igual puedes girarlas libremente con la mano.',
   classic: 'Las piezas empiezan giradas al azar: hay que rotarlas para que encajen.',
 };
-let selCount = 40, selMode = 'relax';
+let selCount = 50, selMode = 'relax';
 
 // Rompecabezas disponibles: El Faro (generado por código) + los modelos de la carpeta "modelos/".
 const puzzles = [...DIORAMAS];
@@ -883,6 +887,8 @@ $('mode-note').textContent = MODE_NOTES.relax;
 $('opt-timer').checked = settings.showTimer;
 $('opt-daynight').checked = settings.dayNight;
 $('opt-daynight').addEventListener('change', (e) => { settings.dayNight = e.target.checked; saveSettings(); });
+$('opt-fps').checked = settings.showFps;
+$('opt-fps').addEventListener('change', (e) => { settings.showFps = e.target.checked; saveSettings(); updateHud(true); });
 $('opt-timer').addEventListener('change', (e) => { settings.showTimer = e.target.checked; saveSettings(); updateHud(true); });
 
 function showMenu() {
@@ -978,6 +984,8 @@ function tick(time) {
   lastTime = time;
   const vr = renderer.xr.isPresenting;
 
+  fpsFrames++; fpsTime += dt;
+  if (fpsTime >= 1) { fpsNow = Math.round(fpsFrames / fpsTime); fpsFrames = 0; fpsTime = 0; if (settings.showFps) updateHud(true); }
   if (state.playing && !state.complete) { state.elapsed += dt; updateHud(false); }
   if (hintTimer > 0) { hintTimer -= dt; if (hintTimer <= 0) $('hint').classList.add('hidden'); }
   if (saveTimer > 0) { saveTimer -= dt; if (saveTimer <= 0) saveNow(); }

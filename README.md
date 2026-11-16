@@ -32,7 +32,7 @@ leve (y una vibración en el mando) avisa cuando ya está a punto de encajar. En
 - **Relajado:** las piezas empiezan bien orientadas.
 - **Clásico:** las piezas empiezan giradas al azar.
 - **Ajustes:** el cronómetro está oculto por defecto; se activa con "Mostrar el tiempo".
-- 20, 40, 80 o 150 piezas. El corte es distinto en cada partida.
+- 25, 50 o 100 piezas. El corte es distinto en cada partida.
 - La partida se guarda sola en el navegador ("Continuar").
 - Una miniatura de referencia gira sobre el pedestal; el sonido del mar crece a medida que avanzás.
 

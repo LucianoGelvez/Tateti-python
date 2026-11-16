@@ -5,7 +5,7 @@ import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/addons/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from './vendor/addons/libs/meshopt_decoder.module.js';
 
-export const MAX_TRIS = 700000;   // por encima de esto el visor no da abasto
+export const MAX_TRIS = 1000000;  // por encima de esto el visor no da abasto
 export const TARGET_SIZE = 0.5;   // ancho del diorama en metros
 const MAX_HEIGHT = 0.62;
 
@@ -72,7 +72,7 @@ export async function loadGLB(url, name, { maxTexture = 2048 } = {}) {
   nTri = Math.floor(nTri);
   if (!nTri) throw new Error('El archivo no contiene mallas.');
   if (nTri > MAX_TRIS) {
-    throw new Error(`El modelo tiene ${Math.round(nTri / 1000)} mil triángulos; el máximo es ${MAX_TRIS / 1000} mil. Descarga una versión más liviana o simplifícalo.`);
+    throw new Error(`El modelo tiene ${Math.round(nTri / 1000)} mil triángulos; el máximo es 1 millón. Descarga una versión más liviana o simplifícalo.`);
   }
 
   // Sketchfab antiguo: materiales "specular-glossiness", que three.js ya no interpreta.
