@@ -7,5 +7,5 @@ import { buildCastillo } from './castillo.js';
 export const DIORAMAS = [
   { id: 'faro', name: 'El Faro', build: buildFaro },
   { id: 'globo', name: 'El Mundo en Globo', build: buildGlobo },
-  { id: 'castillo', name: 'El Castillo del Lago', build: buildCastillo },
+  { id: 'castillo', name: 'El Castillo de Hogwarts', build: buildCastillo },
 ];
