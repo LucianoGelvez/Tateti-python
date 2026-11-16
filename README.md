@@ -11,7 +11,7 @@ con código. No hay assets externos ni paso de compilación.
 ## Cómo jugar
 
 ```bash
-python3 -m http.server 8000
+python3 servidor.py
 # abrir http://localhost:8000
 ```
 
