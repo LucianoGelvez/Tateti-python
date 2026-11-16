@@ -1,0 +1,3 @@
+modelos/*
+!modelos/LEEME.md
+__pycache__/

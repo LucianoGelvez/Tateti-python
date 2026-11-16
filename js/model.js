@@ -257,15 +257,5 @@ export function buildDiorama(seed = 7) {
     }
   }
 
-  // --- centrar ---
-  const P = new Float32Array(pos);
-  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-  for (let i = 0; i < P.length; i += 3) for (let k = 0; k < 3; k++) {
-    if (P[i + k] < min[k]) min[k] = P[i + k];
-    if (P[i + k] > max[k]) max[k] = P[i + k];
-  }
-  const c = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
-  for (let i = 0; i < P.length; i += 3) { P[i] -= c[0]; P[i + 1] -= c[1]; P[i + 2] -= c[2]; }
-
-  return { name: 'El Faro', positions: P, colors: new Float32Array(col), size: [max[0] - min[0], max[1] - min[1], max[2] - min[2]] };
+  return { name: 'El Faro', positions: new Float32Array(pos), colors: new Float32Array(col) };
 }

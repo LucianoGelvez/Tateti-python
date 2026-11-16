@@ -56,3 +56,5 @@ kbd { background: #fff; border: 1px solid var(--line); border-radius: 5px; paddi
 }
 label.check { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 15px; opacity: 1; margin: 4px 0 0; cursor: pointer; }
 label.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+select { font: inherit; color: var(--ink); width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
+button:disabled, select:disabled { opacity: 0.5; cursor: wait; }

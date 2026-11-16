@@ -1,4 +1,6 @@
 // Corta una sopa de triángulos en piezas 3D usando celdas de Voronoi.
+// El modelo trae posiciones (9 por triángulo) y un color por triángulo; opcionalmente
+// normales (9), coordenadas de textura (6) y un índice de material por triángulo.
 // Cada triángulo se recorta contra los planos bisectores de las semillas,
 // así los cortes quedan limpios y las piezas encajan exactamente.
 import { mulberry32 } from './model.js';
@@ -6,7 +8,9 @@ import { mulberry32 } from './model.js';
 export function slice(model, count, seed) {
   const rng = mulberry32(seed);
   const P = model.positions, C = model.colors;
+  const UV = model.uvs || null, NR = model.normals || null, MT = model.mats || null;
   const nTri = P.length / 9;
+  const ST = 8; // por vértice: x y z | u v | nx ny nz
 
   // --- semillas: muestreo ponderado por área + "farthest point sampling" ---
   const areas = new Float64Array(nTri);
@@ -57,9 +61,15 @@ export function slice(model, count, seed) {
   }
 
   // --- recorte ---
-  const out = Array.from({ length: count }, () => ({ pos: [], col: [], nrm: [] }));
+  const out = Array.from({ length: count }, () => new Map()); // material -> {pos, col, nrm, uv}
+  const bucket = (cell, mat) => {
+    let b = out[cell].get(mat);
+    if (!b) { b = { pos: [], col: [], nrm: [], uv: [] }; out[cell].set(mat, b); }
+    return b;
+  };
   const distC = new Float64Array(count);
-  let poly = new Float64Array(64 * 3), poly2 = new Float64Array(64 * 3);
+  let poly = new Float64Array(512 * ST), poly2 = new Float64Array(512 * ST);
+  const tri = new Float64Array(3 * ST);
 
   for (let t = 0; t < nTri; t++) {
     const i = t * 9;
@@ -84,10 +94,18 @@ export function slice(model, count, seed) {
     const nl = Math.hypot(nx, ny, nz) || 1;
     nx /= nl; ny /= nl; nz /= nl;
     const r = C[t * 3], g = C[t * 3 + 1], b = C[t * 3 + 2];
+    const mat = MT ? MT[t] : 0;
+    for (let v = 0; v < 3; v++) {
+      const o = v * ST;
+      tri[o] = P[i + v * 3]; tri[o + 1] = P[i + v * 3 + 1]; tri[o + 2] = P[i + v * 3 + 2];
+      if (UV) { tri[o + 3] = UV[t * 6 + v * 2]; tri[o + 4] = UV[t * 6 + v * 2 + 1]; }
+      if (NR) { tri[o + 5] = NR[i + v * 3]; tri[o + 6] = NR[i + v * 3 + 1]; tri[o + 7] = NR[i + v * 3 + 2]; }
+      else { tri[o + 5] = nx; tri[o + 6] = ny; tri[o + 7] = nz; }
+    }
 
     for (const a of cands) {
       let n = 3;
-      for (let k = 0; k < 9; k++) poly[k] = P[i + k];
+      poly.set(tri);
       const ax = seeds[a * 3], ay = seeds[a * 3 + 1], az = seeds[a * 3 + 2];
       for (const o of cands) {
         if (o === a || n === 0) continue;
@@ -95,49 +113,67 @@ export function slice(model, count, seed) {
         const px = seeds[o * 3] - ax, py = seeds[o * 3 + 1] - ay, pz = seeds[o * 3 + 2] - az;
         const off = px * (ax + px / 2) + py * (ay + py / 2) + pz * (az + pz / 2);
         let m = 0;
-        let jx = poly[(n - 1) * 3], jy = poly[(n - 1) * 3 + 1], jz = poly[(n - 1) * 3 + 2];
-        let dj = px * jx + py * jy + pz * jz - off;
+        let jb = (n - 1) * ST;
+        let dj = px * poly[jb] + py * poly[jb + 1] + pz * poly[jb + 2] - off;
         for (let k = 0; k < n; k++) {
-          const kx = poly[k * 3], ky = poly[k * 3 + 1], kz = poly[k * 3 + 2];
-          const dk = px * kx + py * ky + pz * kz - off;
+          const kb = k * ST;
+          const dk = px * poly[kb] + py * poly[kb + 1] + pz * poly[kb + 2] - off;
           if ((dj <= 0) !== (dk <= 0)) {
-            const f = dj / (dj - dk);
-            poly2[m * 3] = jx + (kx - jx) * f; poly2[m * 3 + 1] = jy + (ky - jy) * f; poly2[m * 3 + 2] = jz + (kz - jz) * f;
+            const f = dj / (dj - dk), mb = m * ST;
+            for (let c = 0; c < ST; c++) poly2[mb + c] = poly[jb + c] + (poly[kb + c] - poly[jb + c]) * f;
             m++;
           }
-          if (dk <= 0) { poly2[m * 3] = kx; poly2[m * 3 + 1] = ky; poly2[m * 3 + 2] = kz; m++; }
-          jx = kx; jy = ky; jz = kz; dj = dk;
+          if (dk <= 0) { const mb = m * ST; for (let c = 0; c < ST; c++) poly2[mb + c] = poly[kb + c]; m++; }
+          jb = kb; dj = dk;
         }
         const tmp = poly; poly = poly2; poly2 = tmp;
         n = m;
       }
       if (n < 3) continue;
-      const O = out[a];
+      const O = bucket(a, mat);
       for (let k = 1; k < n - 1; k++) {
-        const b1 = k * 3, b2 = (k + 1) * 3;
+        const b1 = k * ST, b2 = (k + 1) * ST;
         const e1x = poly[b1] - poly[0], e1y = poly[b1 + 1] - poly[1], e1z = poly[b1 + 2] - poly[2];
         const e2x = poly[b2] - poly[0], e2y = poly[b2 + 1] - poly[1], e2z = poly[b2 + 2] - poly[2];
         const ar = Math.hypot(e1y * e2z - e1z * e2y, e1z * e2x - e1x * e2z, e1x * e2y - e1y * e2x);
         if (ar < 1e-10) continue;
-        O.pos.push(poly[0], poly[1], poly[2], poly[b1], poly[b1 + 1], poly[b1 + 2], poly[b2], poly[b2 + 1], poly[b2 + 2]);
-        for (let v = 0; v < 3; v++) { O.col.push(r, g, b); O.nrm.push(nx, ny, nz); }
+        for (const base of [0, b1, b2]) {
+          O.pos.push(poly[base], poly[base + 1], poly[base + 2]);
+          O.uv.push(poly[base + 3], poly[base + 4]);
+          O.nrm.push(poly[base + 5], poly[base + 6], poly[base + 7]);
+          O.col.push(r, g, b);
+        }
       }
     }
   }
 
   // --- descartar celdas vacías y reindexar ---
   const keep = [];
-  for (let s = 0; s < count; s++) if (out[s].pos.length >= 9) keep.push(s);
+  for (let s = 0; s < count; s++) if (out[s].size) keep.push(s);
   const pieces = keep.map((s, id) => {
-    const O = out[s];
-    const pos = new Float32Array(O.pos);
+    // se concatenan los materiales de la celda, anotando el tramo de cada uno
+    const mats = [...out[s].keys()].sort((x, y) => x - y);
+    let nVerts = 0;
+    for (const m of mats) nVerts += out[s].get(m).pos.length / 3;
+    const pos = new Float32Array(nVerts * 3), col = new Float32Array(nVerts * 3), nrm = new Float32Array(nVerts * 3);
+    const uv = UV ? new Float32Array(nVerts * 2) : null;
+    const groups = [];
+    let at = 0;
+    for (const m of mats) {
+      const b = out[s].get(m), n = b.pos.length / 3;
+      pos.set(b.pos, at * 3); col.set(b.col, at * 3); nrm.set(b.nrm, at * 3);
+      if (uv) uv.set(b.uv, at * 2);
+      groups.push({ mat: m, start: at, count: n });
+      at += n;
+    }
+    out[s] = null;
     let cx = 0, cy = 0, cz = 0;
     for (let k = 0; k < pos.length; k += 3) { cx += pos[k]; cy += pos[k + 1]; cz += pos[k + 2]; }
     const nv = pos.length / 3;
     cx /= nv; cy /= nv; cz /= nv;
     let rad = 0;
     for (let k = 0; k < pos.length; k += 3) rad = Math.max(rad, Math.hypot(pos[k] - cx, pos[k + 1] - cy, pos[k + 2] - cz));
-    return { id, seed: s, positions: pos, colors: new Float32Array(O.col), normals: new Float32Array(O.nrm), centroid: [cx, cy, cz], radius: rad, neighbors: new Map() };
+    return { id, seed: s, positions: pos, colors: col, normals: nrm, uvs: uv, groups, centroid: [cx, cy, cz], radius: rad, neighbors: new Map() };
   });
 
   // --- adyacencia: vértices que caen sobre el plano bisector entre dos celdas ---

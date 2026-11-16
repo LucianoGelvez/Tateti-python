@@ -5,8 +5,8 @@ Un diorama low‑poly —una isla con su faro, una casa, un muelle y un bote— 
 piezas 3D que flotan a tu alrededor. Toma una pieza, acércala a su vecina y se unen
 solas; no hay un tablero fijo: armás el modelo en el aire, por partes, como prefieras.
 
-Todo es original y procedural: el modelo, el corte en piezas y el sonido se generan
-con código. No hay assets externos ni paso de compilación.
+El diorama incluido, el corte en piezas y el sonido se generan con código, y también
+podés cargar tus propios modelos 3D. No hay paso de compilación.
 
 ## Cómo jugar
 
@@ -34,6 +34,15 @@ están a punto de encajar. En VR la pieza sigue a la mano con total libertad (po
 - La partida se guarda sola en el navegador ("Continuar").
 - Una miniatura de referencia gira sobre el pedestal; el sonido del mar crece a medida que avanzás.
 
+## Modelos propios
+
+Además de El Faro, el juego convierte en rompecabezas cualquier modelo 3D `.glb` / `.gltf`,
+con texturas incluidas (por ejemplo, escaneos de lugares reales descargados de Sketchfab).
+Dejá el archivo en la carpeta `modelos/` y arrancá con `python3 servidor.py`: aparece en la
+lista "Rompecabezas" del menú. Detalles y límites en [`modelos/LEEME.md`](modelos/LEEME.md).
+
+Esa carpeta no se sube a GitHub: cada modelo descargado tiene su propia licencia.
+
 ## En Meta Quest
 
 WebXR exige HTTPS, así que lo más simple es publicar el repo con **GitHub Pages**
@@ -46,12 +55,13 @@ Para probar en local: `adb reverse tcp:8000 tcp:8000` y abrir `http://localhost:
 ## Cómo funciona
 
 - `js/model.js` — construye el diorama como una sopa de triángulos coloreados.
+- `js/loader.js` — carga modelos glTF/GLB (texturas, Draco, Meshopt) y los lleva al mismo formato.
 - `js/slicer.js` — reparte semillas sobre la superficie y recorta cada triángulo contra
   las celdas de Voronoi; los cortes son planos compartidos, por eso las piezas encajan
   exactamente. También calcula qué piezas son vecinas y el punto donde se tocan.
 - `js/main.js` — escena, cámara, entrada (ratón, táctil, mandos VR), encastre, guardado.
 - `js/audio.js` — efectos y ambiente sintetizados con WebAudio.
-- `js/vendor/` — three.js (licencia MIT).
+- `js/vendor/` — three.js y sus complementos (licencia MIT). `assets/hands/` — malla de mano de WebXR (MIT).
 
 Al soltar una pieza, dos grupos se unen si un par de piezas vecinas queda con su punto de contacto a
 menos de ~4 cm y con menos de 30° de diferencia de orientación. Con ratón la profundidad

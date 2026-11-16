@@ -2,12 +2,12 @@
 import * as THREE from './vendor/three.module.js';
 import { buildDiorama, mulberry32 } from './model.js';
 import { slice } from './slicer.js';
+import { loadGLB, normalizeModel } from './loader.js';
 import { Sfx } from './audio.js';
 import { XRHandMeshModel } from './vendor/addons/webxr/XRHandMeshModel.js';
 
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'diorama3d-faro-v1';
-const MODEL_SCALE = 0.7;                       // el diorama mide ~0,5 m de ancho
 const C = new THREE.Vector3(0, 1.15, -0.45);   // centro de la zona de armado
 const PEDESTAL_Y = 0.78;
 
@@ -64,34 +64,56 @@ function backfaceShader(shader) {
     '#include <dithering_fragment>',
     '#include <dithering_fragment>\n if (!gl_FrontFacing) { gl_FragColor.rgb = gl_FragColor.rgb * 0.25 + vec3(0.2, 0.185, 0.18); }');
 }
-function makeMaterial() {
+// def: material del modelo ({map, doubleSided, alphaTest}); sin def, solo colores por vértice.
+function makeMaterial(def) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
-  m.onBeforeCompile = backfaceShader;
+  if (def && def.map) m.map = def.map;
+  if (def && def.alphaTest) m.alphaTest = def.alphaTest;
+  // los materiales de doble cara (hojas, telas) se ven igual por detrás; el resto muestra el interior oscuro
+  if (!(def && def.doubleSided)) m.onBeforeCompile = backfaceShader;
   return m;
+}
+// Crea la malla de una pieza (o del modelo entero) a partir de la salida del cortador.
+function buildMesh(r) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(r.colors, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(r.normals, 3));
+  if (r.uvs) geo.setAttribute('uv', new THREE.BufferAttribute(r.uvs, 2));
+  const mats = r.groups.map((g, i) => { geo.addGroup(g.start, g.count, i); return makeMaterial(model.materials[g.mat]); });
+  geo.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geo, mats);
+  mesh.userData.mats = mats;
+  return mesh;
+}
+function disposeMesh(mesh) {
+  mesh.geometry.dispose();
+  for (const m of mesh.userData.mats) m.dispose(); // las texturas son del modelo y se conservan
 }
 
 // ---------------------------------------------------------------- modelo
-const model = buildDiorama(7);
-for (let i = 0; i < model.positions.length; i++) model.positions[i] *= MODEL_SCALE;
+const FARO = { id: 'faro', name: 'El Faro' };
+function buildFaro() {
+  const m = normalizeModel(buildDiorama(7));
+  m.id = FARO.id;
+  m.materials = [{ map: null, doubleSided: false, alphaTest: 0 }];
+  return m;
+}
+let model = buildFaro();
 
-const showcase = (() => {
-  const P = model.positions, n = P.length / 9;
-  const col = new Float32Array(n * 9);
-  for (let t = 0; t < n; t++) for (let v = 0; v < 3; v++) for (let k = 0; k < 3; k++) col[t * 9 + v * 3 + k] = model.colors[t * 3 + k];
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(P, 3));
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, makeMaterial());
-  scene.add(mesh);
-  return mesh;
-})();
-const modelHalfH = model.size[1] * MODEL_SCALE / 2;
+// Modelo completo: en el menú se muestra grande; durante la partida es la miniatura de referencia.
+let showcase = null;
+function rebuildShowcase() {
+  if (showcase) { scene.remove(showcase); disposeMesh(showcase); }
+  showcase = buildMesh(slice(model, 1, 1)[0]);
+  scene.add(showcase);
+}
+rebuildShowcase();
 let showRef = true;
 function placeShowcase() {
   if (state.inGame) {
     showcase.scale.setScalar(0.3);
-    showcase.position.set(C.x, PEDESTAL_Y + modelHalfH * 0.3 + 0.004, C.z);
+    showcase.position.set(C.x, PEDESTAL_Y + model.size[1] / 2 * 0.3 + 0.004, C.z);
     showcase.visible = showRef;
   } else {
     showcase.scale.setScalar(1);
@@ -142,7 +164,7 @@ function makeGroup(pieces) {
 }
 
 function clearGame() {
-  for (const p of state.pieces) { p.mesh.geometry.dispose(); p.mesh.material.dispose(); }
+  for (const p of state.pieces) disposeMesh(p.mesh);
   for (const g of state.groups) world.remove(g);
   state.pieces = []; state.groups.clear(); anims.clear();
   state.finale = null; state.complete = false;
@@ -156,14 +178,9 @@ function buildGame({ count, mode, seed, saved = null }) {
   Object.assign(state, { count, mode, seed, elapsed: saved ? saved.elapsed : 0 });
   const raw = slice(model, count, seed);
   state.pieces = raw.map((r) => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(r.colors, 3));
-    geo.setAttribute('normal', new THREE.BufferAttribute(r.normals, 3));
-    geo.computeBoundingSphere();
-    const mesh = new THREE.Mesh(geo, makeMaterial());
+    const mesh = buildMesh(r);
     const piece = {
-      id: r.id, mesh, centroid: new THREE.Vector3(...r.centroid), radius: r.radius, group: null, flash: 0,
+      id: r.id, mesh, mats: mesh.userData.mats, centroid: new THREE.Vector3(...r.centroid), radius: r.radius, group: null, flash: 0,
       neighbors: new Map([...r.neighbors].map(([j, a]) => [j, new THREE.Vector3(...a)])),
     };
     mesh.userData.piece = piece;
@@ -365,7 +382,7 @@ function saveNow() {
   try {
     const r = (x) => Math.round(x * 1e4) / 1e4;
     localStorage.setItem(SAVE_KEY, JSON.stringify({
-      count: state.count, mode: state.mode, seed: state.seed, elapsed: Math.round(state.elapsed),
+      puzzle: model.id, count: state.count, mode: state.mode, seed: state.seed, elapsed: Math.round(state.elapsed),
       groups: [...state.groups].map((g) => ({ p: g.userData.pieces.map((p) => p.id), pos: g.position.toArray().map(r), q: g.quaternion.toArray().map(r) })),
     }));
   } catch (e) { /* almacenamiento no disponible */ }
@@ -409,7 +426,7 @@ function updateHud(force) {
   ctx.font = '600 58px system-ui, sans-serif';
   ctx.fillText(state.complete ? '¡Completado!' : prog, cv.width / 2, 84);
   ctx.font = '44px system-ui, sans-serif'; ctx.globalAlpha = 0.7;
-  ctx.fillText(settings.showTimer ? `El Faro · ${fmtTime(state.elapsed)}` : 'El Faro', cv.width / 2, 150);
+  ctx.fillText(settings.showTimer ? `${model.name} · ${fmtTime(state.elapsed)}` : model.name, cv.width / 2, 150, cv.width - 40);
   ctx.globalAlpha = 1;
   tex.needsUpdate = true;
 }
@@ -751,6 +768,67 @@ const MODE_NOTES = {
   classic: 'Las piezas empiezan giradas al azar: hay que rotarlas para que encajen.',
 };
 let selCount = 40, selMode = 'relax';
+
+// Rompecabezas disponibles: El Faro (generado por código) + los modelos de la carpeta "modelos/".
+const puzzles = [FARO];
+let loadingModel = null;
+function setBusy(text) {
+  for (const id of ['btn-start', 'btn-continue', 'btn-vr-menu']) $(id).disabled = !!text;
+  $('sel-puzzle').disabled = !!text;
+  if (text !== null) $('puzzle-note').textContent = text || '';
+}
+// Cambia el modelo activo. Devuelve true si quedó cargado.
+async function selectPuzzle(id) {
+  if (loadingModel) await loadingModel.catch(() => {});
+  if (model.id === id) { $('sel-puzzle').value = id; return true; }
+  const pz = puzzles.find((p) => p.id === id);
+  if (!pz) { $('puzzle-note').textContent = 'Ese modelo ya no está en la carpeta "modelos".'; return false; }
+  setBusy(`Cargando «${pz.name}»…`);
+  loadingModel = (async () => {
+    const next = pz === FARO ? buildFaro() : Object.assign(await loadGLB(pz.url, pz.name), { id: pz.id });
+    await new Promise((r) => setTimeout(r, 0));
+    clearGame();
+    state.inGame = false;
+    if (model.dispose) model.dispose();
+    model = next;
+    rebuildShowcase();
+    placeShowcase();
+    updateHud(true);
+  })();
+  try {
+    await loadingModel;
+    setBusy('');
+    $('puzzle-note').textContent = pz === FARO ? '' : `${Math.round(model.positions.length / 9000)} mil triángulos`;
+    $('sel-puzzle').value = id;
+    return true;
+  } catch (e) {
+    console.error(e);
+    setBusy('');
+    $('puzzle-note').textContent = `No se pudo cargar «${pz.name}»: ${e.message}`;
+    $('sel-puzzle').value = model.id;
+    return false;
+  } finally {
+    loadingModel = null;
+    refreshContinue();
+  }
+}
+function fillPuzzleList() {
+  const sel = $('sel-puzzle');
+  sel.innerHTML = '';
+  for (const p of puzzles) { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; sel.appendChild(o); }
+  sel.value = model.id;
+}
+$('sel-puzzle').addEventListener('change', (e) => selectPuzzle(e.target.value));
+fillPuzzleList();
+fetch('modelos/index.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])).then((list) => {
+  for (const it of list) if (it && it.file) puzzles.push({ id: it.file, name: it.name || it.file, url: 'modelos/' + it.file.split('/').map(encodeURIComponent).join('/') });
+  fillPuzzleList();
+  refreshContinue();
+}).catch(() => {});
+function refreshContinue() {
+  const canContinue = (state.inGame && !state.complete) || !!loadSave();
+  $('btn-continue').classList.toggle('hidden', !canContinue);
+}
 function bindSeg(id, set) {
   const seg = $(id);
   seg.addEventListener('click', (e) => {
@@ -773,8 +851,7 @@ function showMenu() {
   $('hud').classList.add('hidden');
   $('done').classList.add('hidden');
   $('hint').classList.add('hidden');
-  const canContinue = (state.inGame && !state.complete) || !!loadSave();
-  $('btn-continue').classList.toggle('hidden', !canContinue);
+  refreshContinue();
 }
 function play() {
   $('menu').classList.add('hidden');
@@ -783,7 +860,13 @@ function play() {
   sfx.init();
   if (state.complete) $('done').classList.remove('hidden');
 }
-function newGame() {
+async function newGame() {
+  if (loadingModel) await loadingModel.catch(() => {});
+  setBusy(`Cortando «${model.name}» en piezas…`);
+  await new Promise((r) => setTimeout(r, 30)); // deja pintar el aviso antes del trabajo pesado
+  try { buildGameSafe(); } finally { setBusy(''); }
+}
+function buildGameSafe() {
   buildGame({ count: selCount, mode: selMode, seed: (Math.random() * 2 ** 31) | 0 });
   saveNow();
   play();
@@ -791,11 +874,14 @@ function newGame() {
     ? 'Arrastra una pieza junto a su vecina y suéltala: cuando ambas brillan, encajan. Arrastra el fondo para girar la vista.'
     : 'Clic derecho (o Mayús) + arrastrar gira la pieza. Q / E la hacen rodar.', 8);
 }
-function continueGame() {
+async function continueGame() {
   if (!(state.inGame && !state.complete)) {
     const s = loadSave();
     if (!s) return newGame();
-    buildGame({ count: s.count, mode: s.mode === 'classic' ? 'classic' : 'relax', seed: s.seed, saved: s });
+    if (!(await selectPuzzle(s.puzzle || FARO.id))) return;
+    setBusy(`Preparando «${model.name}»…`);
+    await new Promise((r) => setTimeout(r, 30));
+    try { buildGame({ count: s.count, mode: s.mode === 'classic' ? 'classic' : 'relax', seed: s.seed, saved: s }); } finally { setBusy(''); }
   }
   play();
 }
@@ -858,7 +944,7 @@ function tick(time) {
     // "a punto de encajar": brillan la pieza sostenida y su vecina
     const ready = !state.complete && (hands.some((h) => h.cand && (h.cand === g || h.held === g)) || (drag && drag.cand && (drag.cand === g || drag.group === g)));
     const e = (ready ? 0.26 : lit ? 0.1 : 0) + p.flash * 0.55;
-    p.mesh.material.emissive.setScalar(e);
+    for (const m of p.mats) m.emissive.setScalar(e);
   }
 
   // final: el diorama armado vuelve al centro y gira
@@ -884,7 +970,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {
