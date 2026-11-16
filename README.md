@@ -1,7 +1,8 @@
 # Diorama 3D — El Faro
 
 Rompecabezas tridimensional para navegador y realidad virtual (WebXR, Meta Quest).
-Un diorama low‑poly —una isla con su faro, una casa, un muelle y un bote— se corta en
+Un diorama low‑poly —una isla con su faro, o un globo aerostático cuya vela es el planeta
+Tierra— se corta en
 piezas 3D que flotan a tu alrededor. Toma una pieza, acércala a su vecina y se unen
 solas; no hay un tablero fijo: armás el modelo en el aire, por partes, como prefieras.
 
@@ -25,8 +26,8 @@ python3 servidor.py
 | **Realidad mixta** | Botón "Realidad mixta": las piezas flotan en tu habitación real (Quest 3), con mandos o con las manos |
 | **VR con las manos** | Sin mandos: pinza (pulgar + índice) sobre la pieza, o apuntarla con el rayo y hacer pinza |
 
-Las piezas se unen **al soltarlas**: cuando la pieza que sostenés y su vecina brillan más,
-están a punto de encajar. En VR la pieza sigue a la mano con total libertad (posición y giro).
+Las piezas se unen **al soltarlas**. La pieza agarrada conserva su color; un aclarado muy
+leve (y una vibración en el mando) avisa cuando ya está a punto de encajar. En VR la pieza sigue a la mano con total libertad (posición y giro).
 
 - **Relajado:** las piezas empiezan bien orientadas.
 - **Clásico:** las piezas empiezan giradas al azar.
@@ -38,7 +39,9 @@ están a punto de encajar. En VR la pieza sigue a la mano con total libertad (po
 ## Dioramas vivos
 
 El diorama cobra vida a medida que lo armás: cada efecto está anclado a una pieza y se
-enciende cuando esa pieza ya está unida a otra. En El Faro: el haz giratorio del faro,
+enciende cuando esa pieza ya está unida a otra. En El Mundo en Globo: la llama del quemador
+(que de noche ilumina la vela), las luces de las ciudades, nubes a la deriva y destellos en
+los océanos. En El Faro: el haz giratorio del faro,
 ventanas iluminadas y luciérnagas de noche; humo en la chimenea, destellos en el agua y
 gaviotas de día. Además hay un ciclo de día y noche (se puede apagar en Ajustes).
 
@@ -66,7 +69,7 @@ Para probar en local: `adb reverse tcp:8000 tcp:8000` y abrir `http://localhost:
 
 ## Cómo funciona
 
-- `js/model.js` — construye el diorama como una sopa de triángulos coloreados.
+- `js/model.js` — construye los dioramas incluidos (El Faro, El Mundo en Globo) como sopas de triángulos coloreados.
 - `js/loader.js` — carga modelos glTF/GLB (texturas, Draco, Meshopt) y los lleva al mismo formato.
 - `js/slicer.js` — reparte semillas sobre la superficie y recorta cada triángulo contra
   las celdas de Voronoi; los cortes son planos compartidos, por eso las piezas encajan

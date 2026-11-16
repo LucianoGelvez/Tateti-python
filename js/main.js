@@ -1,6 +1,6 @@
 // Diorama 3D — rompecabezas tridimensional para navegador y WebXR (Meta Quest).
 import * as THREE from './vendor/three.module.js';
-import { buildDiorama, mulberry32 } from './model.js';
+import { DIORAMAS, mulberry32 } from './model.js';
 import { slice } from './slicer.js';
 import { loadGLB, normalizeModel } from './loader.js';
 import { Sfx } from './audio.js';
@@ -99,14 +99,15 @@ function disposeMesh(mesh) {
 }
 
 // ---------------------------------------------------------------- modelo
-const FARO = { id: 'faro', name: 'El Faro' };
-function buildFaro() {
-  const m = normalizeModel(buildDiorama(7));
-  m.id = FARO.id;
+// Dioramas generados por código (los de la carpeta "modelos/" se suman después).
+function buildBuiltin(pz) {
+  const m = normalizeModel(pz.build());
+  m.id = pz.id;
   m.materials = [{ map: null, doubleSided: false, alphaTest: 0 }];
   return m;
 }
-let model = buildFaro();
+const FARO = DIORAMAS[0];
+let model = buildBuiltin(FARO);
 
 // Modelo completo: en el menú se muestra grande; durante la partida es la miniatura de referencia.
 let showcase = null;
@@ -808,7 +809,7 @@ const MODE_NOTES = {
 let selCount = 40, selMode = 'relax';
 
 // Rompecabezas disponibles: El Faro (generado por código) + los modelos de la carpeta "modelos/".
-const puzzles = [FARO];
+const puzzles = [...DIORAMAS];
 let loadingModel = null;
 function setBusy(text) {
   for (const id of ['btn-start', 'btn-continue', 'btn-vr-menu', 'btn-ar-menu']) $(id).disabled = !!text;
@@ -823,7 +824,7 @@ async function selectPuzzle(id) {
   if (!pz) { $('puzzle-note').textContent = 'Ese modelo ya no está en la carpeta "modelos".'; return false; }
   setBusy(`Cargando «${pz.name}»…`);
   loadingModel = (async () => {
-    const next = pz === FARO ? buildFaro() : Object.assign(await loadGLB(pz.url, pz.name), { id: pz.id });
+    const next = pz.build ? buildBuiltin(pz) : Object.assign(await loadGLB(pz.url, pz.name), { id: pz.id });
     await new Promise((r) => setTimeout(r, 0));
     clearGame();
     state.inGame = false;
@@ -836,7 +837,7 @@ async function selectPuzzle(id) {
   try {
     await loadingModel;
     setBusy('');
-    $('puzzle-note').textContent = pz === FARO ? '' : `${Math.round(model.positions.length / 9000)} mil triángulos`;
+    $('puzzle-note').textContent = pz.build ? '' : `${Math.round(model.positions.length / 9000)} mil triángulos`;
     $('sel-puzzle').value = id;
     return true;
   } catch (e) {
@@ -911,7 +912,7 @@ function buildGameSafe() {
   saveNow();
   play();
   hint(selMode === 'relax'
-    ? 'Arrastra una pieza junto a su vecina y suéltala: cuando ambas brillan, encajan. Arrastra el fondo para girar la vista.'
+    ? 'Arrastra una pieza junto a su vecina y suéltala para unirlas. Arrastra el fondo para girar la vista.'
     : 'Clic derecho (o Mayús) + arrastrar gira la pieza. Q / E la hacen rodar.', 8);
 }
 async function continueGame() {
@@ -1003,7 +1004,10 @@ function tick(time) {
     const lit = !state.complete && (g === hoverGroup || (drag && drag.group === g) || hands[0].hover === g || hands[1].hover === g);
     // "a punto de encajar": brillan la pieza sostenida y su vecina
     const ready = !state.complete && (hands.some((h) => h.cand && (h.cand === g || h.held === g)) || (drag && drag.cand && (drag.cand === g || drag.group === g)));
-    const e = (ready ? 0.26 : lit ? 0.1 : 0) + p.flash * 0.55;
+    // La pieza agarrada conserva su color. Solo quedan avisos muy tenues: al apuntar sin agarrar,
+    // cuando está a punto de encajar y un pulso breve en el momento de unirse.
+    const held = (drag && drag.group === g) || hands[0].held === g || hands[1].held === g;
+    const e = (ready ? 0.035 : lit && !held ? 0.015 : 0) + p.flash * 0.1;
     for (const m of p.mats) m.emissive.setScalar(e);
   }
 
@@ -1030,7 +1034,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, orbit, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {

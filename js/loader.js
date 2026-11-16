@@ -36,6 +36,7 @@ export function normalizeModel(model) {
   // los puntos con efectos se mueven junto con el modelo
   for (const f of model.features || []) {
     f.pos = f.pos.map((v, k) => (v - c[k]) * s);
+    if (f.center) f.center = f.center.map((v, k) => (v - c[k]) * s);
     for (const key of ['size', 'w', 'h']) if (f[key]) f[key] *= s;
   }
   return model;
