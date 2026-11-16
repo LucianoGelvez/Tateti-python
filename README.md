@@ -22,6 +22,7 @@ python3 servidor.py
 | **Mientras arrastrás** | La rueda acerca o aleja la pieza |
 | **Táctil** | Un dedo mueve piezas o la cámara · pellizco = zoom |
 | **VR con mandos** | Gatillo o agarre toma la pieza (al alcance de la mano o apuntando con el rayo; viaja sola hasta la mano) · la palanca la aleja o acerca |
+| **Realidad mixta** | Botón "Realidad mixta": las piezas flotan en tu habitación real (Quest 3), con mandos o con las manos |
 | **VR con las manos** | Sin mandos: pinza (pulgar + índice) sobre la pieza, o apuntarla con el rayo y hacer pinza |
 
 Las piezas se unen **al soltarlas**: cuando la pieza que sostenés y su vecina brillan más,

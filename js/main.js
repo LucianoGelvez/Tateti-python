@@ -13,7 +13,7 @@ const PEDESTAL_Y = 0.78;
 
 // ---------------------------------------------------------------- escena
 const canvas = $('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); // alpha: necesario para la realidad mixta
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
@@ -29,6 +29,7 @@ const sun = new THREE.DirectionalLight(0xfff0d8, 2.3);
 sun.position.set(1.5, 3, 2);
 scene.add(sun);
 
+const envOnly = []; // lo que se oculta en realidad mixta para ver la habitación real
 { // cielo en degradé
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(40, 24, 12),
@@ -38,12 +39,15 @@ scene.add(sun);
       fragmentShader: 'varying float h; void main(){ vec3 a = vec3(0.812,0.902,0.925); vec3 b = vec3(0.36,0.62,0.83); gl_FragColor = vec4(mix(a,b,smoothstep(0.0,0.75,h)),1.0); }',
     }));
   scene.add(sky);
+  envOnly.push(sky);
   const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshLambertMaterial({ color: 0xdfe9e4 }));
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
+  envOnly.push(floor);
   const ring = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.28, 64), new THREE.MeshBasicMaterial({ color: 0xb9cfd2 }));
   ring.rotation.x = -Math.PI / 2; ring.position.set(C.x, 0.002, C.z);
   scene.add(ring);
+  envOnly.push(ring);
   // pedestal de la miniatura de referencia
   const wood = new THREE.MeshLambertMaterial({ color: 0xb08a5e });
   const col = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.03, PEDESTAL_Y - 0.01, 12), wood);
@@ -731,13 +735,24 @@ function updateHands(dt) {
   }
 }
 
-async function enterVR() {
+// mode: 'immersive-vr' (mundo virtual) o 'immersive-ar' (realidad mixta: las piezas flotan en tu habitación)
+let xrMixed = false;
+const SKY_COLOR = scene.background, SKY_FOG = scene.fog;
+function setMixed(on) {
+  xrMixed = on;
+  for (const o of envOnly) o.visible = !on;
+  scene.background = on ? null : SKY_COLOR;
+  scene.fog = on ? null : SKY_FOG;
+}
+async function enterVR(mode = 'immersive-vr') {
   if (!navigator.xr) return;
   try {
-    const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
+    const session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
+    setMixed(mode === 'immersive-ar');
     await renderer.xr.setSession(session);
   } catch (e) {
-    hint('No se pudo iniciar la sesión de VR: ' + e.message);
+    setMixed(false);
+    hint('No se pudo iniciar la sesión: ' + e.message);
   }
 }
 renderer.xr.addEventListener('sessionstart', () => {
@@ -750,6 +765,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 renderer.xr.addEventListener('sessionend', () => {
   for (const h of hands) { h.held = null; h.cand = null; h.pull = null; h.hover = null; }
   panel.mesh.visible = false;
+  setMixed(false);
   if (state.inGame) { layout(false, true); scheduleSave(); }
   onResize();
 });
@@ -757,6 +773,9 @@ if (navigator.xr && navigator.xr.isSessionSupported) {
   navigator.xr.isSessionSupported('immersive-vr').then((ok) => {
     if (ok) { $('btn-vr').classList.remove('hidden'); $('btn-vr-menu').classList.remove('hidden'); }
     else $('vr-note').textContent = 'Para jugar en VR abre esta página (por HTTPS) en el navegador de tu Meta Quest.';
+  }).catch(() => {});
+  navigator.xr.isSessionSupported('immersive-ar').then((ok) => {
+    if (ok) { $('btn-ar').classList.remove('hidden'); $('btn-ar-menu').classList.remove('hidden'); }
   }).catch(() => {});
 } else {
   $('vr-note').textContent = 'Para jugar en VR abre esta página (por HTTPS) en el navegador de tu Meta Quest.';
@@ -773,7 +792,7 @@ let selCount = 40, selMode = 'relax';
 const puzzles = [FARO];
 let loadingModel = null;
 function setBusy(text) {
-  for (const id of ['btn-start', 'btn-continue', 'btn-vr-menu']) $(id).disabled = !!text;
+  for (const id of ['btn-start', 'btn-continue', 'btn-vr-menu', 'btn-ar-menu']) $(id).disabled = !!text;
   $('sel-puzzle').disabled = !!text;
   if (text !== null) $('puzzle-note').textContent = text || '';
 }
@@ -896,12 +915,15 @@ $('btn-sound').addEventListener('click', () => {
   sfx.setMuted(!sfx.muted);
   $('btn-sound').textContent = 'Sonido: ' + (sfx.muted ? 'no' : 'sí');
 });
-$('btn-vr').addEventListener('click', enterVR);
-$('btn-vr-menu').addEventListener('click', () => {
-  const p = enterVR(); // debe pedirse dentro del gesto del usuario
+$('btn-vr').addEventListener('click', () => enterVR('immersive-vr'));
+$('btn-ar').addEventListener('click', () => enterVR('immersive-ar'));
+function startImmersive(mode) {
+  const p = enterVR(mode); // debe pedirse dentro del gesto del usuario
   if (state.inGame && !state.complete) continueGame(); else if (loadSave()) continueGame(); else newGame();
   return p;
-});
+}
+$('btn-vr-menu').addEventListener('click', () => startImmersive('immersive-vr'));
+$('btn-ar-menu').addEventListener('click', () => startImmersive('immersive-ar'));
 window.addEventListener('pagehide', saveNow);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
 
@@ -970,7 +992,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {

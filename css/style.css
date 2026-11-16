@@ -41,7 +41,7 @@ label { display: block; font-size: 12px; text-transform: uppercase; letter-spaci
 .seg button { flex: 1; border-radius: 12px; }
 .seg button.on { background: var(--ink); color: #fff; }
 .row { display: flex; gap: 8px; margin-top: 18px; }
-#btn-vr-menu { width: 100%; margin-top: 8px; }
+.row.tight { margin-top: 8px; }
 .note { font-size: 13px; opacity: 0.7; margin: 8px 0 0; min-height: 1em; }
 details { margin-top: 14px; font-size: 14px; }
 summary { cursor: pointer; font-weight: 600; }
