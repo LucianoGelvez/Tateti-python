@@ -21,10 +21,15 @@ python3 -m http.server 8000
 | **Modo clásico** | Clic derecho (o Mayús + arrastrar) gira la pieza · `Q` / `E` la hacen rodar |
 | **Mientras arrastrás** | La rueda acerca o aleja la pieza |
 | **Táctil** | Un dedo mueve piezas o la cámara · pellizco = zoom |
-| **VR** | Gatillo o agarre toma la pieza (al alcance de la mano o apuntando con el rayo) · la palanca la acerca o aleja · una pieza en cada mano y juntalas |
+| **VR con mandos** | Gatillo o agarre toma la pieza (al alcance de la mano o apuntando con el rayo; viaja sola hasta la mano) · la palanca la aleja o acerca |
+| **VR con las manos** | Sin mandos: pinza (pulgar + índice) sobre la pieza, o apuntarla con el rayo y hacer pinza |
 
-- **Relajado:** las piezas ya vienen orientadas; solo hay que ubicarlas.
-- **Clásico:** las piezas vienen giradas al azar (pensado sobre todo para VR).
+Las piezas se unen **al soltarlas**: cuando la pieza que sostenés y su vecina brillan más,
+están a punto de encajar. En VR la pieza sigue a la mano con total libertad (posición y giro).
+
+- **Relajado:** las piezas empiezan bien orientadas.
+- **Clásico:** las piezas empiezan giradas al azar.
+- **Ajustes:** el cronómetro está oculto por defecto; se activa con "Mostrar el tiempo".
 - 20, 40, 80 o 150 piezas. El corte es distinto en cada partida.
 - La partida se guarda sola en el navegador ("Continuar").
 - Una miniatura de referencia gira sobre el pedestal; el sonido del mar crece a medida que avanzás.
@@ -34,6 +39,8 @@ python3 -m http.server 8000
 WebXR exige HTTPS, así que lo más simple es publicar el repo con **GitHub Pages**
 (Settings → Pages → *Deploy from a branch*, carpeta raíz) y abrir la URL en el
 navegador del visor; ahí aparece el botón **Jugar en VR**.
+Para jugar con las manos hay que tener activado el seguimiento de manos en los ajustes del visor
+y aceptar el permiso que pide el navegador al entrar; se puede alternar entre mandos y manos en plena partida.
 Para probar en local: `adb reverse tcp:8000 tcp:8000` y abrir `http://localhost:8000` en el visor.
 
 ## Cómo funciona
@@ -46,7 +53,7 @@ Para probar en local: `adb reverse tcp:8000 tcp:8000` y abrir `http://localhost:
 - `js/audio.js` — efectos y ambiente sintetizados con WebAudio.
 - `js/vendor/` — three.js (licencia MIT).
 
-Dos grupos se unen cuando un par de piezas vecinas queda con su punto de contacto a
+Al soltar una pieza, dos grupos se unen si un par de piezas vecinas queda con su punto de contacto a
 menos de ~4 cm y con menos de 30° de diferencia de orientación. Con ratón la profundidad
 respecto a la cámara casi no cuenta, para que se pueda jugar en una pantalla plana.
 

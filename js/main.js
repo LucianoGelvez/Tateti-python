@@ -106,6 +106,10 @@ const state = {
   elapsed: 0, playing: false, inGame: false, complete: false, finale: null,
 };
 const sfx = new Sfx();
+const SETTINGS_KEY = 'diorama3d-settings-v1';
+const settings = { showTimer: false };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* valores por defecto */ }
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* nada */ } }
 const anims = new Set();   // mallas deslizándose a su sitio tras un encastre
 let saveTimer = 0;
 
@@ -252,8 +256,9 @@ function merge(A, B) { // todas las piezas de A pasan a B
   recomputeCentroid(B);
 }
 
-function trySnap(G, flat) {
-  if (state.complete) return false;
+// Busca el grupo vecino con el que G encajaría ahora mismo (o null).
+function findSnap(G, flat) {
+  if (state.complete) return null;
   const posTol = flat ? 0.05 : 0.04;
   const angTol = THREE.MathUtils.degToRad(30);
   let best = null, bestD = Infinity;
@@ -275,14 +280,20 @@ function trySnap(G, flat) {
       if (d < posTol && d < bestD) { bestD = d; best = B; }
     }
   }
+  return best;
+}
+
+// Une G con el vecino que tenga a tiro. Se llama al soltar la pieza.
+function trySnap(G, flat) {
+  const best = findSnap(G, flat);
   if (!best) return false;
 
   const heldBy = (g) => hands.find((h) => h.held === g) || (drag && drag.group === g ? drag : null);
   let from = G, to = best;
   if (!heldBy(best) && G.userData.pieces.length >= best.userData.pieces.length) { from = best; to = G; }
   // quien sostenía el grupo absorbido lo suelta
-  for (const h of hands) if (h.held === from) { h.held = null; }
-  if (drag && drag.group === from) endDrag();
+  for (const h of hands) if (h.held === from) { h.held = null; h.cand = null; }
+  if (drag && drag.group === from) { drag = null; canvas.style.cursor = ''; }
   if (hoverGroup === from) hoverGroup = null;
   merge(from, to);
 
@@ -302,7 +313,7 @@ function onComplete(g) {
   state.finale = { t: 0, g, fromQ: g.quaternion.clone(), fromP: worldCentroid(g), angle: 0 };
   sfx.complete();
   burstConfetti();
-  $('done-text').textContent = `${state.total} piezas en ${fmtTime(state.elapsed)}`;
+  $('done-text').textContent = settings.showTimer ? `${state.total} piezas en ${fmtTime(state.elapsed)}` : `${state.total} piezas`;
   if (!renderer.xr.isPresenting) $('done').classList.remove('hidden');
   updateHud(true);
 }
@@ -388,6 +399,7 @@ function updateHud(force) {
   const prog = `${state.complete ? state.total : done} / ${state.total} piezas`;
   $('progress').textContent = prog;
   $('timer').textContent = fmtTime(state.elapsed);
+  $('timer').classList.toggle('hidden', !settings.showTimer);
   const { ctx, cv, tex } = panel;
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = 'rgba(250,247,240,0.95)';
@@ -396,7 +408,7 @@ function updateHud(force) {
   ctx.font = '600 58px system-ui, sans-serif';
   ctx.fillText(state.complete ? '¡Completado!' : prog, cv.width / 2, 84);
   ctx.font = '44px system-ui, sans-serif'; ctx.globalAlpha = 0.7;
-  ctx.fillText(`El Faro · ${fmtTime(state.elapsed)}`, cv.width / 2, 150);
+  ctx.fillText(settings.showTimer ? `El Faro · ${fmtTime(state.elapsed)}` : 'El Faro', cv.width / 2, 150);
   ctx.globalAlpha = 1;
   tex.needsUpdate = true;
 }
@@ -434,9 +446,10 @@ function pickPiece() {
   return hits.length ? hits[0] : null;
 }
 function endDrag() {
-  if (drag && drag.group) { sfx.drop(); scheduleSave(); }
+  const g = drag && drag.group;
   drag = null;
   canvas.style.cursor = '';
+  if (g) { if (!trySnap(g, true)) sfx.drop(); scheduleSave(); } // las piezas se unen al soltar
 }
 function clampToArena(g) {
   worldCentroid(g, t1).sub(C);
@@ -452,7 +465,6 @@ function applyMove(e) {
   if (!raycaster.ray.intersectPlane(dragPlane, t2)) return;
   drag.group.position.copy(t2).add(drag.offset);
   clampToArena(drag.group);
-  trySnap(drag.group, true);
 }
 function rotateGroup(g, q) {
   worldCentroid(g, t1);
@@ -526,7 +538,6 @@ canvas.addEventListener('pointermove', (e) => {
       q1.setFromAxisAngle(t2, dx * 0.012);
       q2.setFromAxisAngle(t3, dy * 0.012);
       rotateGroup(drag.group, q1.multiply(q2));
-      trySnap(drag.group, true);
     }
   }
 });
@@ -556,21 +567,32 @@ window.addEventListener('keydown', (e) => {
   if (!g) return;
   camera.getWorldDirection(t2);
   rotateGroup(g, q1.setFromAxisAngle(t2, k === 'q' ? -0.14 : 0.14));
-  trySnap(g, true);
+  if (!drag) trySnap(g, true);
   scheduleSave();
 });
 
 // ---------------------------------------------------------------- VR
+// Cada "mano" puede ser un mando o una mano real (seguimiento de manos de WebXR).
+// Con mandos se agarra con gatillo o agarre; con las manos, haciendo pinza (pulgar + índice).
+const ONE = new THREE.Vector3(1, 1, 1);
+const tp = V(), tp2 = V();
+const jointGeo = new THREE.SphereGeometry(1, 10, 8);
+const handMat = new THREE.MeshLambertMaterial({ color: 0xf3e3d3 });
 const hands = [0, 1].map((i) => {
-  const c = renderer.xr.getController(i);
+  const c = renderer.xr.getController(i);     // espacio del rayo (mando o mano)
+  const hand = renderer.xr.getHand(i);        // articulaciones de la mano
   const tip = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 8), new THREE.MeshLambertMaterial({ color: 0xffffff }));
   const rayGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
   const ray = new THREE.Line(rayGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
   c.add(tip, ray);
-  scene.add(c);
-  const h = { c, ray, tip, held: null, offset: new THREE.Matrix4(), src: null, hover: null };
-  c.addEventListener('connected', (e) => { h.src = e.data; });
-  c.addEventListener('disconnected', () => { h.src = null; h.held = null; });
+  scene.add(c, hand);
+  const h = {
+    c, hand, ray, tip, src: null, isHand: false,
+    pose: new THREE.Matrix4(), tracked: false,   // punto y orientación de agarre, en el mundo
+    held: null, offset: new THREE.Matrix4(), pull: null, hover: null, cand: null,
+  };
+  c.addEventListener('connected', (e) => { h.src = e.data; h.isHand = !!(e.data && e.data.hand); tip.visible = !h.isHand; });
+  c.addEventListener('disconnected', () => { h.src = null; h.isHand = false; h.held = null; h.cand = null; h.pull = null; });
   for (const ev of ['selectstart', 'squeezestart']) c.addEventListener(ev, () => grabVR(h));
   for (const ev of ['selectend', 'squeezeend']) c.addEventListener(ev, () => releaseVR(h));
   return h;
@@ -578,64 +600,91 @@ const hands = [0, 1].map((i) => {
 function pulse(h, strength, ms) {
   try { h.src && h.src.gamepad && h.src.gamepad.hapticActuators && h.src.gamepad.hapticActuators[0] && h.src.gamepad.hapticActuators[0].pulse(strength, ms); } catch (e) { /* sin vibración */ }
 }
-// Devuelve {group, dist}: primero la pieza al alcance de la mano; si no, la que apunta el rayo.
+// Actualiza h.pose. Con manos: el punto de pinza (entre pulgar e índice) con la orientación de la muñeca.
+function refreshPose(h) {
+  if (h.isHand) {
+    const j = h.hand.joints, a = j['thumb-tip'], b = j['index-finger-tip'], w = j['wrist'];
+    if (!(a && b && w && a.visible && b.visible && w.visible)) { h.tracked = false; return; } // mano fuera de vista: se conserva la última pose
+    tp.addVectors(a.position, b.position).multiplyScalar(0.5);
+    h.pose.compose(tp, w.quaternion, ONE);
+    // esferitas para dibujar la mano
+    for (const name in j) {
+      const jt = j[name];
+      if (!jt.userData.ball) { jt.userData.ball = new THREE.Mesh(jointGeo, handMat); jt.add(jt.userData.ball); }
+      jt.userData.ball.scale.setScalar(jt.jointRadius || 0.008);
+    }
+  } else {
+    h.c.updateMatrixWorld();
+    h.pose.copy(h.c.matrixWorld);
+  }
+  h.tracked = true;
+}
+// Devuelve {group, dist, point}: primero la pieza al alcance de la mano; si no, la que apunta el rayo.
 function pickVR(h) {
-  h.c.getWorldPosition(t1);
+  tp.setFromMatrixPosition(h.pose);
   let best = null, bd = 0.05;
   for (const p of state.pieces) {
-    t2.copy(p.centroid).applyQuaternion(p.group.quaternion).add(p.group.position);
-    const d = t2.distanceTo(t1) - p.radius * 0.6;
+    tp2.copy(p.centroid).applyQuaternion(p.group.quaternion).add(p.group.position);
+    const d = tp2.distanceTo(tp) - p.radius * 0.6;
     if (d < bd) { bd = d; best = p; }
   }
-  if (best) return { group: best.group, dist: 0 };
-  t2.set(0, 0, -1).applyQuaternion(h.c.getWorldQuaternion(q1));
-  raycaster.set(t1, t2);
+  if (best) return { group: best.group, dist: 0, point: null };
+  h.c.getWorldPosition(tp);
+  tp2.set(0, 0, -1).applyQuaternion(h.c.getWorldQuaternion(q1));
+  raycaster.set(tp, tp2);
   raycaster.far = 6;
   const hit = pickPiece();
-  return hit ? { group: hit.object.userData.piece.group, dist: hit.distance } : null;
+  return hit ? { group: hit.object.userData.piece.group, dist: hit.distance, point: hit.point } : null;
 }
 function grabVR(h) {
   if (!state.playing || h.held) return;
+  refreshPose(h);
   const pk = pickVR(h);
   if (!pk) return;
-  for (const o of hands) if (o !== h && o.held === pk.group) o.held = null;
+  for (const o of hands) if (o !== h && o.held === pk.group) { o.held = null; o.cand = null; o.pull = null; }
   if (state.finale && state.finale.g === pk.group) state.finale = null;
   h.held = pk.group;
-  h.c.updateMatrixWorld();
   pk.group.updateMatrix();
-  h.offset.copy(h.c.matrixWorld).invert().multiply(pk.group.matrix);
+  m2.copy(h.pose).invert();
+  h.offset.multiplyMatrices(m2, pk.group.matrix);
+  // tomada a distancia: la pieza viaja hasta la mano (punto apuntado → punto de agarre)
+  h.pull = pk.point ? pk.point.clone().applyMatrix4(m2) : null;
   sfx.pick();
   pulse(h, 0.3, 25);
 }
 function releaseVR(h) {
-  if (!h.held) return;
-  h.held = null;
-  sfx.drop();
+  const g = h.held;
+  if (!g) return;
+  h.held = null; h.cand = null; h.pull = null;
+  if (!trySnap(g, false)) sfx.drop();   // las piezas se unen al soltar
   scheduleSave();
 }
 function updateHands(dt) {
   for (const h of hands) {
+    refreshPose(h);
     if (h.held) {
       const g = h.held;
-      // la palanca acerca o aleja la pieza
+      const E = h.offset.elements;
+      // la palanca del mando acerca o aleja la pieza
       const ax = h.src && h.src.gamepad && h.src.gamepad.axes;
       const stick = ax ? (Math.abs(ax[3] || 0) > 0.15 ? ax[3] : (Math.abs(ax[1] || 0) > 0.15 ? ax[1] : 0)) : 0;
-      if (stick) {
-        const z = h.offset.elements[14] + stick * dt * 1.2;
-        h.offset.elements[14] = Math.min(z, 0.02);
+      if (stick) { h.pull = null; E[14] = Math.min(E[14] + stick * dt * 1.2, 0.3); }
+      if (h.pull) {
+        const k = 1 - Math.exp(-dt * 9);
+        tp.set(0, 0, h.isHand ? 0 : -0.03).sub(h.pull);
+        if (tp.length() < 0.004) h.pull = null;
+        else { tp.multiplyScalar(k); h.pull.add(tp); E[12] += tp.x; E[13] += tp.y; E[14] += tp.z; }
       }
-      h.c.updateMatrixWorld();
-      m1.multiplyMatrices(h.c.matrixWorld, h.offset).decompose(g.position, g.quaternion, tS);
-      if (state.mode === 'relax') {
-        worldCentroid(g, t1);
-        g.quaternion.identity();
-        setPivot(g, t1);
-      }
+      // la pieza sigue a la mano con total libertad: posición y giro
+      if (h.tracked) m1.multiplyMatrices(h.pose, h.offset).decompose(g.position, g.quaternion, tS);
       h.hover = g;
       h.ray.visible = false;
-      trySnap(g, false);
+      const cand = findSnap(g, false);
+      if (cand && !h.cand) pulse(h, 0.25, 15); // aviso: si la sueltas aquí, encaja
+      h.cand = cand;
     } else {
-      const pk = state.playing ? pickVR(h) : null;
+      h.cand = null;
+      const pk = state.playing && h.src && h.tracked ? pickVR(h) : null;
       h.hover = pk ? pk.group : null;
       h.ray.visible = true;
       h.ray.scale.z = pk && pk.dist > 0 ? pk.dist : (pk ? 0.001 : 1.5);
@@ -646,7 +695,7 @@ function updateHands(dt) {
 async function enterVR() {
   if (!navigator.xr) return;
   try {
-    const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] });
+    const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
     await renderer.xr.setSession(session);
   } catch (e) {
     hint('No se pudo iniciar la sesión de VR: ' + e.message);
@@ -660,7 +709,7 @@ renderer.xr.addEventListener('sessionstart', () => {
   if (state.inGame) layout(true, true);
 });
 renderer.xr.addEventListener('sessionend', () => {
-  for (const h of hands) h.held = null;
+  for (const h of hands) { h.held = null; h.cand = null; h.pull = null; h.hover = null; }
   panel.mesh.visible = false;
   if (state.inGame) { layout(false, true); scheduleSave(); }
   onResize();
@@ -676,8 +725,8 @@ if (navigator.xr && navigator.xr.isSessionSupported) {
 
 // ---------------------------------------------------------------- menú
 const MODE_NOTES = {
-  relax: 'Las piezas ya vienen orientadas: solo hay que encontrar dónde va cada una.',
-  classic: 'Las piezas vienen giradas al azar: hay que rotarlas para que encajen. Ideal en VR.',
+  relax: 'Las piezas empiezan bien orientadas. En VR igual puedes girarlas libremente con la mano.',
+  classic: 'Las piezas empiezan giradas al azar: hay que rotarlas para que encajen.',
 };
 let selCount = 40, selMode = 'relax';
 function bindSeg(id, set) {
@@ -691,6 +740,8 @@ function bindSeg(id, set) {
 bindSeg('seg-count', (v) => { selCount = +v; });
 bindSeg('seg-mode', (v) => { selMode = v; $('mode-note').textContent = MODE_NOTES[v]; });
 $('mode-note').textContent = MODE_NOTES.relax;
+$('opt-timer').checked = settings.showTimer;
+$('opt-timer').addEventListener('change', (e) => { settings.showTimer = e.target.checked; saveSettings(); updateHud(true); });
 
 function showMenu() {
   state.playing = false;
@@ -715,7 +766,7 @@ function newGame() {
   saveNow();
   play();
   hint(selMode === 'relax'
-    ? 'Arrastra una pieza junto a su vecina para unirlas. Arrastra el fondo para girar la vista.'
+    ? 'Arrastra una pieza junto a su vecina y suéltala: cuando ambas brillan, encajan. Arrastra el fondo para girar la vista.'
     : 'Clic derecho (o Mayús) + arrastrar gira la pieza. Q / E la hacen rodar.', 8);
 }
 function continueGame() {
@@ -766,6 +817,7 @@ function tick(time) {
   if (saveTimer > 0) { saveTimer -= dt; if (saveTimer <= 0) saveNow(); }
 
   if (vr) updateHands(dt); else updateCamera();
+  if (drag && drag.group) drag.cand = findSnap(drag.group, true);
 
   // piezas deslizándose a su lugar
   for (const mesh of anims) {
@@ -781,7 +833,9 @@ function tick(time) {
     if (p.flash > 0) p.flash = Math.max(0, p.flash - dt * 2.2);
     const g = p.group;
     const lit = !state.complete && (g === hoverGroup || (drag && drag.group === g) || hands[0].hover === g || hands[1].hover === g);
-    const e = (lit ? 0.1 : 0) + p.flash * 0.55;
+    // "a punto de encajar": brillan la pieza sostenida y su vecina
+    const ready = !state.complete && (hands.some((h) => h.cand && (h.cand === g || h.held === g)) || (drag && drag.cand && (drag.cand === g || drag.group === g)));
+    const e = (ready ? 0.26 : lit ? 0.1 : 0) + p.flash * 0.55;
     p.mesh.material.emissive.setScalar(e);
   }
 
@@ -808,7 +862,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, camera, C,
+    state, layout, trySnap, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {
