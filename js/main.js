@@ -3,6 +3,7 @@ import * as THREE from './vendor/three.module.js';
 import { buildDiorama, mulberry32 } from './model.js';
 import { slice } from './slicer.js';
 import { Sfx } from './audio.js';
+import { XRHandMeshModel } from './vendor/addons/webxr/XRHandMeshModel.js';
 
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'diorama3d-faro-v1';
@@ -578,6 +579,22 @@ const ONE = new THREE.Vector3(1, 1, 1);
 const tp = V(), tp2 = V();
 const jointGeo = new THREE.SphereGeometry(1, 10, 8);
 const handMat = new THREE.MeshLambertMaterial({ color: 0xf3e3d3 });
+const handSkin = new THREE.MeshStandardMaterial({ color: 0xf0dfd0, roughness: 0.85, metalness: 0 });
+// Carga la malla de mano (izquierda o derecha) la primera vez que aparece esa mano.
+// Mientras carga, o si fallara, se siguen viendo las esferitas en las articulaciones.
+function ensureHandMesh(h, side) {
+  if (side !== 'left' && side !== 'right') return;
+  if (h.meshSide === side) return;
+  if (h.meshRoot) scene.remove(h.meshRoot);
+  h.meshSide = side; h.meshReady = false;
+  const root = (h.meshRoot = new THREE.Group());
+  root.visible = false;
+  scene.add(root);
+  h.handMesh = new XRHandMeshModel(root, h.hand, 'assets/hands/', side, null, (obj) => {
+    obj.traverse((o) => { if (o.isSkinnedMesh) { o.material = handSkin; o.castShadow = false; o.receiveShadow = false; } });
+    if (h.meshRoot === root) h.meshReady = true;
+  });
+}
 const hands = [0, 1].map((i) => {
   const c = renderer.xr.getController(i);     // espacio del rayo (mando o mano)
   const hand = renderer.xr.getHand(i);        // articulaciones de la mano
@@ -590,8 +607,9 @@ const hands = [0, 1].map((i) => {
     c, hand, ray, tip, src: null, isHand: false,
     pose: new THREE.Matrix4(), tracked: false,   // punto y orientación de agarre, en el mundo
     held: null, offset: new THREE.Matrix4(), pull: null, hover: null, cand: null,
+    handMesh: null, meshRoot: null, meshSide: null, meshReady: false,
   };
-  c.addEventListener('connected', (e) => { h.src = e.data; h.isHand = !!(e.data && e.data.hand); tip.visible = !h.isHand; });
+  c.addEventListener('connected', (e) => { h.src = e.data; h.isHand = !!(e.data && e.data.hand); tip.visible = !h.isHand; if (h.isHand) ensureHandMesh(h, e.data.handedness); });
   c.addEventListener('disconnected', () => { h.src = null; h.isHand = false; h.held = null; h.cand = null; h.pull = null; });
   for (const ev of ['selectstart', 'squeezestart']) c.addEventListener(ev, () => grabVR(h));
   for (const ev of ['selectend', 'squeezeend']) c.addEventListener(ev, () => releaseVR(h));
@@ -602,15 +620,19 @@ function pulse(h, strength, ms) {
 }
 // Actualiza h.pose. Con manos: el punto de pinza (entre pulgar e índice) con la orientación de la muñeca.
 function refreshPose(h) {
+  if (h.meshRoot) h.meshRoot.visible = false;
   if (h.isHand) {
     const j = h.hand.joints, a = j['thumb-tip'], b = j['index-finger-tip'], w = j['wrist'];
     if (!(a && b && w && a.visible && b.visible && w.visible)) { h.tracked = false; return; } // mano fuera de vista: se conserva la última pose
     tp.addVectors(a.position, b.position).multiplyScalar(0.5);
     h.pose.compose(tp, w.quaternion, ONE);
-    // esferitas para dibujar la mano
+    // dibujo de la mano: malla articulada; esferitas solo como respaldo
+    const mesh = h.meshReady && j['pinky-finger-tip'];
+    if (mesh) { h.handMesh.updateMesh(); h.meshRoot.visible = true; }
     for (const name in j) {
       const jt = j[name];
       if (!jt.userData.ball) { jt.userData.ball = new THREE.Mesh(jointGeo, handMat); jt.add(jt.userData.ball); }
+      jt.userData.ball.visible = !mesh;
       jt.userData.ball.scale.setScalar(jt.jointRadius || 0.008);
     }
   } else {
