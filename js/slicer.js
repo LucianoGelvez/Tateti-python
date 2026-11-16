@@ -3,7 +3,7 @@
 // normales (9), coordenadas de textura (6) y un índice de material por triángulo.
 // Cada triángulo se recorta contra los planos bisectores de las semillas,
 // así los cortes quedan limpios y las piezas encajan exactamente.
-import { mulberry32 } from './model.js';
+import { mulberry32 } from './dioramas/builder.js';
 
 export function slice(model, count, seed) {
   const rng = mulberry32(seed);

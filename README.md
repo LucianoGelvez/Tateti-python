@@ -46,7 +46,7 @@ ventanas iluminadas y luciérnagas de noche; humo en la chimenea, destellos en e
 gaviotas de día. Además hay un ciclo de día y noche (se puede apagar en Ajustes).
 
 Los efectos se declaran junto al modelo como una lista de puntos (`features` en
-`js/model.js`) y los dibuja `js/life.js`. Los modelos descargados solo reciben el ciclo
+`js/dioramas/<id>.js`) y los dibuja `js/life.js`. Los modelos descargados solo reciben el ciclo
 de día y noche: sus detalles vivos habría que definirlos a mano, uno por uno.
 
 ## Modelos propios
@@ -69,7 +69,7 @@ Para probar en local: `adb reverse tcp:8000 tcp:8000` y abrir `http://localhost:
 
 ## Cómo funciona
 
-- `js/model.js` — construye los dioramas incluidos (El Faro, El Mundo en Globo) como sopas de triángulos coloreados.
+- `js/dioramas/` — un archivo por diorama hecho por código (El Faro, El Mundo en Globo), más `builder.js` (herramientas comunes) e `index.js` (la lista del menú).
 - `js/loader.js` — carga modelos glTF/GLB (texturas, Draco, Meshopt) y los lleva al mismo formato.
 - `js/slicer.js` — reparte semillas sobre la superficie y recorta cada triángulo contra
   las celdas de Voronoi; los cortes son planos compartidos, por eso las piezas encajan

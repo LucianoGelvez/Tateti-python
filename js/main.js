@@ -1,6 +1,7 @@
 // Diorama 3D — rompecabezas tridimensional para navegador y WebXR (Meta Quest).
 import * as THREE from './vendor/three.module.js';
-import { DIORAMAS, mulberry32 } from './model.js';
+import { DIORAMAS } from './dioramas/index.js';
+import { mulberry32 } from './dioramas/builder.js';
 import { slice } from './slicer.js';
 import { loadGLB, normalizeModel } from './loader.js';
 import { Sfx } from './audio.js';
