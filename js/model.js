@@ -34,6 +34,8 @@ export function buildDiorama(seed = 7) {
   const pos = [];
   const col = [];
   const tmpColor = new THREE.Color();
+  // puntos donde el diorama "cobra vida" (luces, humo, destellos…); los usa js/life.js
+  const features = [];
 
   const jitter = (hex, amt = 0.06) => {
     tmpColor.setHex(hex);
@@ -159,6 +161,7 @@ export function buildDiorama(seed = 7) {
     addGeo(new THREE.CylinderGeometry(0.031, 0.029, 0.007, 12), 0x3b3f46, { p: [lx, y + 0.0035, lz] });
     y += 0.007;
     addGeo(new THREE.CylinderGeometry(0.016, 0.016, 0.028, 8, 1, true), 0xffe28a, { p: [lx, y + 0.014, lz], amt: 0.1 });
+    features.push({ type: 'beam', pos: [lx, y + 0.014, lz], size: 0.02 });
     y += 0.028;
     addGeo(new THREE.ConeGeometry(0.025, 0.03, 8), 0xb8382f, { p: [lx, y + 0.015, lz] });
     addGeo(new THREE.SphereGeometry(0.005, 6, 4), 0x3b3f46, { p: [lx, y + 0.033, lz] });
@@ -181,6 +184,10 @@ export function buildDiorama(seed = 7) {
     roof.rotateY(Math.PI / 2);      // eje a lo largo de X
     addGeo(roof, 0xc0603a, { p: local(0, H + 0.0125, 0), r: [0, rot, 0], s: [W + 0.012, 0.025, (D + 0.014) / Math.sqrt(3)], amt: 0.06 });
     addGeo(new THREE.BoxGeometry(0.012, 0.03, 0.012), 0x9a8f86, { p: local(0.025, H + 0.02, -0.012), r: [0, rot, 0] });
+    features.push({ type: 'smoke', pos: local(0.025, H + 0.038, -0.012), size: 0.008 });
+    features.push({ type: 'window', pos: local(0.02, 0.03, D / 2 + 0.0026), yaw: rot, w: 0.014, h: 0.012 });
+    features.push({ type: 'window', pos: local(W / 2 + 0.0026, 0.03, 0), yaw: rot + Math.PI / 2, w: 0.014, h: 0.012 });
+    features.push({ type: 'window', pos: local(-W / 2 - 0.0026, 0.03, 0.008), yaw: rot - Math.PI / 2, w: 0.014, h: 0.012 });
     addGeo(new THREE.BoxGeometry(0.014, 0.026, 0.004), 0x6b4428, { p: local(-0.012, 0.021, D / 2), r: [0, rot, 0] });
     addGeo(new THREE.BoxGeometry(0.016, 0.014, 0.004), 0x6fb6d9, { p: local(0.02, 0.03, D / 2), r: [0, rot, 0] });
     addGeo(new THREE.BoxGeometry(0.004, 0.014, 0.016), 0x6fb6d9, { p: local(W / 2, 0.03, 0), r: [0, rot, 0] });
@@ -199,6 +206,8 @@ export function buildDiorama(seed = 7) {
       if (avoid.some(([ax, az, ar]) => Math.hypot(x - ax, z - az) < ar)) continue;
       if (placed.some(([px, pz]) => Math.hypot(x - px, z - pz) < 0.05)) continue;
       placed.push([x, z]);
+      features.push({ type: 'firefly', pos: [x + (rng() - 0.5) * 0.03, h + 0.02 + rng() * 0.04, z + (rng() - 0.5) * 0.03], size: 0.02 });
+      features.push({ type: 'firefly', pos: [x + (rng() - 0.5) * 0.04, h + 0.015 + rng() * 0.05, z + (rng() - 0.5) * 0.04], size: 0.02 });
       const sc = 0.8 + rng() * 0.55;
       const y = h - 0.004;
       addGeo(new THREE.CylinderGeometry(0.004 * sc, 0.005 * sc, 0.024 * sc, 5), 0x6e4a2c, { p: [x, y + 0.012 * sc, z] });
@@ -257,5 +266,15 @@ export function buildDiorama(seed = 7) {
     }
   }
 
-  return { name: 'El Faro', positions: new Float32Array(pos), colors: new Float32Array(col) };
+  // destellos sobre el agua y gaviotas
+  for (let i = 0, tries = 0; i < 90 && tries < 2000; tries++) {
+    const ang = rng() * Math.PI * 2, r = Math.sqrt(rng()) * R * 0.94;
+    const x = Math.cos(ang) * r, z = Math.sin(ang) * r;
+    if (height(x, z) > -0.012) continue;
+    features.push({ type: 'sparkle', pos: [x, 0.004, z], size: 0.01 });
+    i++;
+  }
+  features.push({ type: 'gulls', pos: [-0.02, 0.27, 0.0], size: 0.13 });
+
+  return { name: 'El Faro', positions: new Float32Array(pos), colors: new Float32Array(col), features };
 }

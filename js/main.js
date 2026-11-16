@@ -4,6 +4,7 @@ import { buildDiorama, mulberry32 } from './model.js';
 import { slice } from './slicer.js';
 import { loadGLB, normalizeModel } from './loader.js';
 import { Sfx } from './audio.js';
+import { buildLife, dayNight, newSky } from './life.js';
 import { XRHandMeshModel } from './vendor/addons/webxr/XRHandMeshModel.js';
 
 const $ = (id) => document.getElementById(id);
@@ -24,7 +25,9 @@ scene.background = new THREE.Color(0xcfe6ec);
 scene.fog = new THREE.Fog(0xcfe6ec, 5, 22);
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.02, 80);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 1.7));
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 1.7);
+scene.add(hemi);
+const skyUniforms = { uA: { value: new THREE.Color(0xcfe6ec) }, uB: { value: new THREE.Color(0x5c9ed4) } };
 const sun = new THREE.DirectionalLight(0xfff0d8, 2.3);
 sun.position.set(1.5, 3, 2);
 scene.add(sun);
@@ -34,9 +37,9 @@ const envOnly = []; // lo que se oculta en realidad mixta para ver la habitació
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(40, 24, 12),
     new THREE.ShaderMaterial({
-      side: THREE.BackSide, fog: false, depthWrite: false,
+      side: THREE.BackSide, fog: false, depthWrite: false, uniforms: skyUniforms,
       vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: 'varying float h; void main(){ vec3 a = vec3(0.812,0.902,0.925); vec3 b = vec3(0.36,0.62,0.83); gl_FragColor = vec4(mix(a,b,smoothstep(0.0,0.75,h)),1.0); }',
+      fragmentShader: 'uniform vec3 uA; uniform vec3 uB; varying float h; void main(){ gl_FragColor = vec4(mix(uA,uB,smoothstep(0.0,0.75,h)),1.0); }',
     }));
   scene.add(sky);
   envOnly.push(sky);
@@ -44,7 +47,7 @@ const envOnly = []; // lo que se oculta en realidad mixta para ver la habitació
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
   envOnly.push(floor);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.28, 64), new THREE.MeshBasicMaterial({ color: 0xb9cfd2 }));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.28, 64), new THREE.MeshLambertMaterial({ color: 0xb9cfd2 }));
   ring.rotation.x = -Math.PI / 2; ring.position.set(C.x, 0.002, C.z);
   scene.add(ring);
   envOnly.push(ring);
@@ -107,10 +110,14 @@ let model = buildFaro();
 
 // Modelo completo: en el menú se muestra grande; durante la partida es la miniatura de referencia.
 let showcase = null;
+let lifeShow = null, lifeGame = null; // efectos "vivos": del modelo del menú y de la partida
 function rebuildShowcase() {
+  if (lifeShow) { lifeShow.dispose(); lifeShow = null; }
   if (showcase) { scene.remove(showcase); disposeMesh(showcase); }
   showcase = buildMesh(slice(model, 1, 1)[0]);
   scene.add(showcase);
+  const host = { object: showcase, active: () => !state.inGame };
+  lifeShow = buildLife(model.features || [], () => host);
 }
 rebuildShowcase();
 let showRef = true;
@@ -134,7 +141,7 @@ const state = {
 };
 const sfx = new Sfx();
 const SETTINGS_KEY = 'diorama3d-settings-v1';
-const settings = { showTimer: false };
+const settings = { showTimer: false, dayNight: true };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* valores por defecto */ }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* nada */ } }
 const anims = new Set();   // mallas deslizándose a su sitio tras un encastre
@@ -168,6 +175,7 @@ function makeGroup(pieces) {
 }
 
 function clearGame() {
+  if (lifeGame) { lifeGame.dispose(); lifeGame = null; }
   for (const p of state.pieces) disposeMesh(p.mesh);
   for (const g of state.groups) world.remove(g);
   state.pieces = []; state.groups.clear(); anims.clear();
@@ -184,13 +192,23 @@ function buildGame({ count, mode, seed, saved = null }) {
   state.pieces = raw.map((r) => {
     const mesh = buildMesh(r);
     const piece = {
-      id: r.id, mesh, mats: mesh.userData.mats, centroid: new THREE.Vector3(...r.centroid), radius: r.radius, group: null, flash: 0,
+      id: r.id, mesh, mats: mesh.userData.mats, seedPos: r.seedPos, centroid: new THREE.Vector3(...r.centroid), radius: r.radius, group: null, flash: 0,
       neighbors: new Map([...r.neighbors].map(([j, a]) => [j, new THREE.Vector3(...a)])),
     };
     mesh.userData.piece = piece;
     return piece;
   });
   state.total = state.pieces.length;
+  // cada efecto cuelga de la pieza que contiene su punto (la de semilla más cercana)
+  // y despierta cuando esa pieza ya está unida a alguna otra
+  lifeGame = buildLife(model.features || [], (pos) => {
+    let best = null, bd = Infinity;
+    for (const p of state.pieces) {
+      const d = (p.seedPos[0] - pos[0]) ** 2 + (p.seedPos[1] - pos[1]) ** 2 + (p.seedPos[2] - pos[2]) ** 2;
+      if (d < bd) { bd = d; best = p; }
+    }
+    return best && { object: best.mesh, active: () => best.group.userData.pieces.length >= 2 };
+  });
 
   let restored = false;
   if (saved && saved.groups && saved.groups.flat) {
@@ -465,7 +483,8 @@ function setRay(e) {
 }
 function pickPiece() {
   const hits = raycaster.intersectObjects(world.children, true);
-  return hits.length ? hits[0] : null;
+  for (const h of hits) if (h.object.userData.piece) return h; // se ignora todo lo que no sea una pieza
+  return null;
 }
 function endDrag() {
   const g = drag && drag.group;
@@ -860,6 +879,8 @@ bindSeg('seg-count', (v) => { selCount = +v; });
 bindSeg('seg-mode', (v) => { selMode = v; $('mode-note').textContent = MODE_NOTES[v]; });
 $('mode-note').textContent = MODE_NOTES.relax;
 $('opt-timer').checked = settings.showTimer;
+$('opt-daynight').checked = settings.dayNight;
+$('opt-daynight').addEventListener('change', (e) => { settings.dayNight = e.target.checked; saveSettings(); });
 $('opt-timer').addEventListener('change', (e) => { settings.showTimer = e.target.checked; saveSettings(); updateHud(true); });
 
 function showMenu() {
@@ -937,6 +958,19 @@ window.addEventListener('resize', onResize);
 
 // ---------------------------------------------------------------- bucle
 let lastTime = 0;
+// día y noche: una vuelta completa cada DAY_SECONDS mientras se juega
+const DAY_SECONDS = 180;
+const skyNow = newSky();
+let dayPhase = 0, lifeT = 0;
+function updateSky(dt) {
+  if (!settings.dayNight) dayPhase += (Math.round(dayPhase) - dayPhase) * Math.min(1, dt * 1.5); // vuelve al mediodía
+  else if (state.playing) dayPhase = (dayPhase + dt / DAY_SECONDS) % 1;
+  dayNight(dayPhase, skyNow);
+  sun.color.copy(skyNow.sun); sun.intensity = skyNow.sunI;
+  hemi.color.copy(skyNow.hemi); hemi.groundColor.copy(skyNow.ground); hemi.intensity = skyNow.hemiI;
+  skyUniforms.uA.value.copy(skyNow.sky); skyUniforms.uB.value.copy(skyNow.top);
+  SKY_COLOR.copy(skyNow.sky); SKY_FOG.color.copy(skyNow.sky);
+}
 function tick(time) {
   const dt = Math.min(Math.max((time - lastTime) / 1000, 0), 0.1);
   lastTime = time;
@@ -946,6 +980,10 @@ function tick(time) {
   if (hintTimer > 0) { hintTimer -= dt; if (hintTimer <= 0) $('hint').classList.add('hidden'); }
   if (saveTimer > 0) { saveTimer -= dt; if (saveTimer <= 0) saveNow(); }
 
+  updateSky(dt);
+  lifeT += dt;
+  if (lifeShow && showcase.visible) lifeShow.update(dt, lifeT, skyNow.night);
+  if (lifeGame) lifeGame.update(dt, lifeT, skyNow.night);
   if (vr) updateHands(dt); else updateCamera();
   if (drag && drag.group) drag.cand = findSnap(drag.group, true);
 
@@ -992,7 +1030,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {

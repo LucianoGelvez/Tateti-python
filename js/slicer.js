@@ -173,7 +173,7 @@ export function slice(model, count, seed) {
     cx /= nv; cy /= nv; cz /= nv;
     let rad = 0;
     for (let k = 0; k < pos.length; k += 3) rad = Math.max(rad, Math.hypot(pos[k] - cx, pos[k + 1] - cy, pos[k + 2] - cz));
-    return { id, seed: s, positions: pos, colors: col, normals: nrm, uvs: uv, groups, centroid: [cx, cy, cz], radius: rad, neighbors: new Map() };
+    return { id, seed: s, seedPos: [seeds[s * 3], seeds[s * 3 + 1], seeds[s * 3 + 2]], positions: pos, colors: col, normals: nrm, uvs: uv, groups, centroid: [cx, cy, cz], radius: rad, neighbors: new Map() };
   });
 
   // --- adyacencia: vértices que caen sobre el plano bisector entre dos celdas ---

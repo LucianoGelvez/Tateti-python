@@ -35,6 +35,17 @@ están a punto de encajar. En VR la pieza sigue a la mano con total libertad (po
 - La partida se guarda sola en el navegador ("Continuar").
 - Una miniatura de referencia gira sobre el pedestal; el sonido del mar crece a medida que avanzás.
 
+## Dioramas vivos
+
+El diorama cobra vida a medida que lo armás: cada efecto está anclado a una pieza y se
+enciende cuando esa pieza ya está unida a otra. En El Faro: el haz giratorio del faro,
+ventanas iluminadas y luciérnagas de noche; humo en la chimenea, destellos en el agua y
+gaviotas de día. Además hay un ciclo de día y noche (se puede apagar en Ajustes).
+
+Los efectos se declaran junto al modelo como una lista de puntos (`features` en
+`js/model.js`) y los dibuja `js/life.js`. Los modelos descargados solo reciben el ciclo
+de día y noche: sus detalles vivos habría que definirlos a mano, uno por uno.
+
 ## Modelos propios
 
 Además de El Faro, el juego convierte en rompecabezas cualquier modelo 3D `.glb` / `.gltf`,

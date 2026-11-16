@@ -33,6 +33,11 @@ export function normalizeModel(model) {
   const c = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
   for (let i = 0; i < P.length; i += 3) for (let k = 0; k < 3; k++) P[i + k] = (P[i + k] - c[k]) * s;
   model.size = ext.map((e) => e * s);
+  // los puntos con efectos se mueven junto con el modelo
+  for (const f of model.features || []) {
+    f.pos = f.pos.map((v, k) => (v - c[k]) * s);
+    for (const key of ['size', 'w', 'h']) if (f[key]) f[key] *= s;
+  }
   return model;
 }
 
