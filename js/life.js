@@ -23,7 +23,7 @@ const TWINKLE = {
 
 // punto redondo y difuso para que los destellos no se vean como cuadraditos de cerca
 let dotTex = null;
-function softDot() {
+export function softDot() {
   if (dotTex) return dotTex;
   const cv = document.createElement('canvas'); cv.width = cv.height = 64;
   const ctx = cv.getContext('2d'), g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);

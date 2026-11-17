@@ -1,60 +1,121 @@
 :root {
   --ink: #1d2733;
-  --paper: rgba(250, 247, 240, 0.94);
+  --ink-soft: rgba(29, 39, 51, 0.62);
+  --paper: #fbf8f1;
+  --paper-2: #f1ece0;
   --accent: #d2553f;
+  --accent-dark: #b94531;
   --accent-ink: #fff;
-  --line: rgba(29, 39, 51, 0.16);
+  --line: rgba(29, 39, 51, 0.13);
+  --sky-a: #cfe6ec;
+  --sky-b: #eef3e6;
+  --shadow: 0 18px 50px rgba(16, 36, 52, 0.26);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe0ea; color: var(--ink);
-  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+  font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  -webkit-user-select: none; user-select: none; }
 #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .hidden { display: none !important; }
+svg { flex: none; }
 
 button { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line);
-  border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: transform .08s, background .15s; }
+  border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: transform .08s, background .15s, box-shadow .15s; }
 button:hover { background: #fff; }
 button:active { transform: scale(0.97); }
-button.accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-button.accent:hover { background: #bf4632; }
-button.big { padding: 12px 20px; font-weight: 600; flex: 1; }
+button:disabled { opacity: 0.5; cursor: wait; }
+button.accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; box-shadow: 0 6px 16px rgba(210, 85, 63, 0.32); }
+button.accent:hover { background: var(--accent-dark); }
+button.big { padding: 13px 18px; font-weight: 700; font-size: 16px; flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 16px; }
 
+/* ---------- barra superior durante la partida ---------- */
 #hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; pointer-events: none; }
 #hud > * { pointer-events: auto; }
 #hud .spacer { flex: 1; }
-.pill { background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px;
-  font-variant-numeric: tabular-nums; font-weight: 600; }
-#hint { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(29, 39, 51, 0.72);
-  color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 14px; max-width: calc(100% - 32px); text-align: center; pointer-events: none; }
+.pill { background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 9px 15px;
+  font-variant-numeric: tabular-nums; font-weight: 700; box-shadow: 0 4px 14px rgba(16, 36, 52, 0.12); }
+button.icon { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; box-shadow: 0 4px 14px rgba(16, 36, 52, 0.12); }
+button.icon.off { color: var(--ink-soft); background: rgba(251, 248, 241, 0.6); }
+#hint { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(29, 39, 51, 0.74);
+  color: #fff; padding: 9px 18px; border-radius: 999px; font-size: 14px; max-width: calc(100% - 32px); text-align: center; pointer-events: none; }
 
-.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
-  background: rgba(20, 45, 60, 0.35); backdrop-filter: blur(6px); overflow: auto; }
-#done { background: transparent; backdrop-filter: none; align-items: flex-end; pointer-events: none; }
-#done .card { pointer-events: auto; margin-bottom: 24px; }
-.card { background: var(--paper); border-radius: 22px; padding: 28px; width: min(460px, 100%);
-  box-shadow: 0 20px 60px rgba(10, 30, 45, 0.3); }
-.card.small { width: min(380px, 100%); text-align: center; }
-h1 { margin: 0; font-size: 34px; letter-spacing: -0.02em; }
-.sub { margin: 4px 0 18px; opacity: 0.75; }
-label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; margin: 14px 0 6px; }
-.seg { display: flex; gap: 6px; }
-.seg button { flex: 1; border-radius: 12px; }
-.seg button.on { background: var(--ink); color: #fff; }
-.row { display: flex; gap: 8px; margin-top: 18px; }
-.row.tight { margin-top: 8px; }
-.note { font-size: 13px; opacity: 0.7; margin: 8px 0 0; min-height: 1em; }
-details { margin-top: 14px; font-size: 14px; }
-summary { cursor: pointer; font-weight: 600; }
-ul { padding-left: 18px; margin: 8px 0 0; }
-li { margin-bottom: 6px; line-height: 1.35; }
-kbd { background: #fff; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; font-size: 12px; }
+/* ---------- menú ---------- */
+.overlay { position: fixed; inset: 0; display: flex; padding: 18px; overflow: auto; }
+#menu { align-items: stretch; justify-content: flex-start; pointer-events: none; }
+#menu .card { pointer-events: auto; }
+.card { background: linear-gradient(180deg, var(--paper), var(--paper-2)); border-radius: 26px; padding: 22px 22px 18px;
+  width: min(450px, 100%); box-shadow: var(--shadow); overflow-y: auto; max-height: 100%; border: 1px solid rgba(255, 255, 255, 0.7); }
+.card::-webkit-scrollbar { width: 0; }
 
-@media (max-width: 560px) {
-  #hud button { padding: 6px 10px; font-size: 13px; }
-  .card { padding: 20px; }
-  h1 { font-size: 28px; }
-}
-label.check { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 15px; opacity: 1; margin: 4px 0 0; cursor: pointer; }
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.logo { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(140deg, #e8765c, var(--accent) 55%, #a93f2d); box-shadow: 0 6px 16px rgba(210, 85, 63, 0.35); }
+.brand-text { flex: 1; min-width: 0; }
+h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; line-height: 1.1; }
+.sub { margin: 2px 0 0; color: var(--ink-soft); font-size: 14px; }
+.chip { font-size: 12px; font-weight: 700; color: var(--ink-soft); background: rgba(29, 39, 51, 0.07); padding: 4px 9px; border-radius: 999px; }
+
+section { margin-top: 14px; }
+h2 { margin: 0 0 7px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-soft); font-weight: 700; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.note { font-size: 13px; color: var(--ink-soft); margin: 7px 0 0; min-height: 0; line-height: 1.35; }
+.note:empty { display: none; }
+
+/* tarjetas de rompecabezas */
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.grid.busy { opacity: 0.6; pointer-events: none; }
+.pz { padding: 0; border-radius: 18px; overflow: hidden; background: #fff; text-align: left; display: flex; flex-direction: column;
+  border: 2px solid transparent; box-shadow: 0 3px 10px rgba(16, 36, 52, 0.1); }
+.pz:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(16, 36, 52, 0.16); }
+.pz.on { border-color: var(--accent); box-shadow: 0 8px 20px rgba(210, 85, 63, 0.25); }
+.pz .thumb { position: relative; display: block; aspect-ratio: 4 / 3; background: linear-gradient(180deg, var(--sky-a), var(--sky-b)); }
+.pz img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.pz img.empty { visibility: hidden; }
+.pz .badge { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff;
+  display: none; place-items: center; }
+.pz.on .badge { display: grid; }
+.pz .name { padding: 8px 11px 10px; font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* controles segmentados */
+.seg { display: flex; gap: 4px; background: rgba(29, 39, 51, 0.07); padding: 4px; border-radius: 14px; }
+.seg button { flex: 1; border-radius: 10px; border: 0; background: transparent; padding: 8px 6px; font-weight: 600; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.seg button:hover { background: rgba(255, 255, 255, 0.6); }
+.seg button.on { background: #fff; color: var(--ink); box-shadow: 0 2px 8px rgba(16, 36, 52, 0.14); }
+
+.actions { display: flex; gap: 8px; margin-top: 16px; }
+#btn-continue { flex-direction: column; gap: 1px; line-height: 1.15; }
+#btn-continue small { font-weight: 500; font-size: 11.5px; color: var(--ink-soft); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.settings { margin-top: 12px; font-size: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.settings summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--ink-soft); list-style: none; }
+.settings summary::-webkit-details-marker { display: none; }
+.settings[open] summary { color: var(--ink); margin-bottom: 6px; }
+label.check { display: flex; align-items: center; gap: 9px; font-size: 15px; margin: 7px 0 0; cursor: pointer; }
 label.check input { width: 18px; height: 18px; accent-color: var(--accent); }
-select { font: inherit; color: var(--ink); width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
-button:disabled, select:disabled { opacity: 0.5; cursor: wait; }
+
+/* ---------- final ---------- */
+#done { align-items: flex-end; justify-content: center; pointer-events: none; }
+#done .card { pointer-events: auto; margin-bottom: 6px; }
+.card.small { width: min(390px, 100%); text-align: center; }
+.card.small h1 { font-size: 30px; }
+
+/* ventanas bajas (como la del navegador del visor): las tarjetas pasan a una fila deslizable */
+@media (max-height: 760px) {
+  .grid { display: flex; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x proximity; }
+  .pz { flex: 0 0 42%; scroll-snap-align: start; }
+  .pz .thumb { aspect-ratio: 16 / 10; }
+  #mode-note { display: none; }
+  .brand { margin-bottom: 10px; }
+  section { margin-top: 11px; }
+}
+@media (max-width: 899px) {
+  #menu { justify-content: center; }
+  .card { width: min(520px, 100%); }
+}
+@media (max-width: 560px) {
+  .overlay { padding: 10px; }
+  button.icon { width: 40px; height: 40px; }
+  .card { padding: 18px 16px 14px; border-radius: 22px; }
+  h1 { font-size: 23px; }
+}

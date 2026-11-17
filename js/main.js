@@ -7,6 +7,9 @@ import { loadGLB, normalizeModel } from './loader.js';
 import { Sfx } from './audio.js';
 import { buildLife, dayNight, newSky } from './life.js';
 import { XRHandMeshModel } from './vendor/addons/webxr/XRHandMeshModel.js';
+import { buildEnvironment } from './environment.js';
+import { createVRBar } from './vrbar.js';
+import { svgIcon } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'diorama3d-faro-v1';
@@ -23,8 +26,8 @@ renderer.xr.setReferenceSpaceType('local-floor');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcfe6ec);
-scene.fog = new THREE.Fog(0xcfe6ec, 5, 22);
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.02, 80);
+scene.fog = new THREE.Fog(0xcfe6ec, 16, 150);
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.02, 700);
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 1.7);
 scene.add(hemi);
@@ -34,33 +37,24 @@ sun.position.set(1.5, 3, 2);
 scene.add(sun);
 
 const envOnly = []; // lo que se oculta en realidad mixta para ver la habitación real
+const env = buildEnvironment(C); // pradera, plataforma, árboles, montañas, nubes, astros
 { // cielo en degradé
   const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(40, 24, 12),
+    new THREE.SphereGeometry(300, 24, 12),
     new THREE.ShaderMaterial({
       side: THREE.BackSide, fog: false, depthWrite: false, uniforms: skyUniforms,
       vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: 'uniform vec3 uA; uniform vec3 uB; varying float h; void main(){ gl_FragColor = vec4(mix(uA,uB,smoothstep(0.0,0.75,h)),1.0); }',
+      fragmentShader: 'uniform vec3 uA; uniform vec3 uB; varying float h; void main(){ gl_FragColor = vec4(mix(uA,uB,smoothstep(-0.02,0.7,h)),1.0); }',
     }));
-  scene.add(sky);
-  envOnly.push(sky);
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshLambertMaterial({ color: 0xdfe9e4 }));
-  floor.rotation.x = -Math.PI / 2;
-  scene.add(floor);
-  envOnly.push(floor);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.28, 64), new THREE.MeshLambertMaterial({ color: 0xb9cfd2 }));
-  ring.rotation.x = -Math.PI / 2; ring.position.set(C.x, 0.002, C.z);
-  scene.add(ring);
-  envOnly.push(ring);
-  // pedestal de la miniatura de referencia
-  const wood = new THREE.MeshLambertMaterial({ color: 0xb08a5e });
-  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.03, PEDESTAL_Y - 0.01, 12), wood);
-  col.position.set(C.x, (PEDESTAL_Y - 0.01) / 2, C.z);
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.105, 0.014, 32), wood);
-  top.position.set(C.x, PEDESTAL_Y - 0.007, C.z);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.02, 24), wood);
-  base.position.set(C.x, 0.01, C.z);
-  scene.add(col, top, base);
+  sky.renderOrder = -10;
+  scene.add(sky, env.group);
+  envOnly.push(sky, env.group);
+  // pedestal torneado para la miniatura de referencia (también se ve en realidad mixta)
+  const profile = [[0.125, 0], [0.13, 0.014], [0.095, 0.03], [0.045, 0.058], [0.028, 0.11], [0.022, 0.38], [0.034, 0.41], [0.034, 0.43],
+    [0.021, 0.46], [0.019, 0.69], [0.03, 0.735], [0.1, 0.758], [0.118, 0.764], [0.118, PEDESTAL_Y], [0, PEDESTAL_Y]];
+  const stand = new THREE.Mesh(new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 28), new THREE.MeshLambertMaterial({ color: 0xb08a5e }));
+  stand.position.set(C.x, 0, C.z);
+  scene.add(stand);
 }
 
 const world = new THREE.Group(); // contiene los grupos de piezas
@@ -82,13 +76,13 @@ function makeMaterial(def) {
   return m;
 }
 // Crea la malla de una pieza (o del modelo entero) a partir de la salida del cortador.
-function buildMesh(r) {
+function buildMesh(r, mdl = model) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(r.colors, 3));
   geo.setAttribute('normal', new THREE.BufferAttribute(r.normals, 3));
   if (r.uvs) geo.setAttribute('uv', new THREE.BufferAttribute(r.uvs, 2));
-  const mats = r.groups.map((g, i) => { geo.addGroup(g.start, g.count, i); return makeMaterial(model.materials[g.mat]); });
+  const mats = r.groups.map((g, i) => { geo.addGroup(g.start, g.count, i); return makeMaterial(mdl.materials[g.mat]); });
   geo.computeBoundingSphere();
   const mesh = new THREE.Mesh(geo, mats);
   mesh.userData.mats = mats;
@@ -122,6 +116,70 @@ function rebuildShowcase() {
   lifeShow = buildLife(model.features || [], () => host);
 }
 rebuildShowcase();
+
+// Miniaturas para las tarjetas del menú: se dibujan una vez y se guardan en el navegador.
+const APP_VERSION = $('version').textContent.trim();
+const THUMB_W = 360, THUMB_H = 270, THUMB_PREFIX = 'diorama3d-thumb:';
+const thumbKey = (pz) => `${THUMB_PREFIX}${APP_VERSION}:${pz.id}:${pz.mb || ''}`;
+const thumbTools = (() => {
+  const sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 1.7));
+  const l = new THREE.DirectionalLight(0xfff0d8, 2.3); l.position.set(1.5, 3, 2); sc.add(l);
+  const lut = new Uint8Array(256); // el destino de dibujo es lineal: se pasa a sRGB a mano
+  for (let i = 0; i < 256; i++) { const c = i / 255; lut[i] = Math.round(255 * (c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055)); }
+  return { sc, cam: new THREE.PerspectiveCamera(28, THUMB_W / THUMB_H, 0.05, 30), rt: null, lut };
+})();
+function getThumb(pz) { try { return localStorage.getItem(thumbKey(pz)); } catch (e) { return null; } }
+// Dibuja una malla centrada en el origen y devuelve la imagen (o null si ahora no se puede).
+function renderThumb(mesh, size) {
+  if (renderer.xr.isPresenting) return null;
+  const T = thumbTools, W = THUMB_W * 2, H = THUMB_H * 2;
+  if (!T.rt) T.rt = new THREE.WebGLRenderTarget(W, H);
+  const keep = { parent: mesh.parent, pos: mesh.position.clone(), rot: mesh.rotation.clone(), scale: mesh.scale.clone(), vis: mesh.visible };
+  try {
+    T.sc.add(mesh);
+    mesh.position.set(0, 0, 0); mesh.rotation.set(0, 0, 0); mesh.scale.setScalar(1); mesh.visible = true;
+    const r = 0.5 * Math.hypot(size[0], size[1], size[2]);
+    const d = r / Math.sin(THREE.MathUtils.degToRad(T.cam.fov / 2)) * 0.9, az = 0.6, el = 0.36;
+    T.cam.position.set(Math.sin(az) * Math.cos(el) * d, Math.sin(el) * d, Math.cos(az) * Math.cos(el) * d);
+    T.cam.lookAt(0, 0, 0);
+    const prevAlpha = renderer.getClearAlpha();
+    renderer.setClearAlpha(0);
+    renderer.setRenderTarget(T.rt);
+    renderer.clear();
+    renderer.render(T.sc, T.cam);
+    const buf = new Uint8Array(W * H * 4);
+    renderer.readRenderTargetPixels(T.rt, 0, 0, W, H, buf);
+    renderer.setRenderTarget(null);
+    renderer.setClearAlpha(prevAlpha);
+    const big = document.createElement('canvas'); big.width = W; big.height = H;
+    const img = big.getContext('2d').createImageData(W, H);
+    for (let y = 0; y < H; y++) { // la imagen leída viene cabeza abajo
+      const src = (H - 1 - y) * W * 4, dst = y * W * 4;
+      for (let x = 0; x < W * 4; x += 4) {
+        img.data[dst + x] = T.lut[buf[src + x]]; img.data[dst + x + 1] = T.lut[buf[src + x + 1]];
+        img.data[dst + x + 2] = T.lut[buf[src + x + 2]]; img.data[dst + x + 3] = buf[src + x + 3];
+      }
+    }
+    big.getContext('2d').putImageData(img, 0, 0);
+    const small = document.createElement('canvas'); small.width = THUMB_W; small.height = THUMB_H;
+    small.getContext('2d').drawImage(big, 0, 0, THUMB_W, THUMB_H);
+    return small.toDataURL('image/webp', 0.86);
+  } catch (e) {
+    console.warn('No se pudo crear la miniatura', e);
+    renderer.setRenderTarget(null);
+    return null;
+  } finally {
+    if (keep.parent) keep.parent.add(mesh); else T.sc.remove(mesh);
+    mesh.position.copy(keep.pos); mesh.rotation.copy(keep.rot); mesh.scale.copy(keep.scale); mesh.visible = keep.vis;
+  }
+}
+function saveThumb(pz, url) {
+  if (!url) return;
+  try { localStorage.setItem(thumbKey(pz), url); } catch (e) { /* sin espacio: se regenera la próxima vez */ }
+  const img = document.querySelector(`#puzzle-grid [data-id="${CSS.escape(pz.id)}"] img`);
+  if (img) { img.src = url; img.classList.remove('empty'); }
+}
 let showRef = true;
 function placeShowcase() {
   if (state.inGame) {
@@ -143,7 +201,7 @@ const state = {
 };
 const sfx = new Sfx();
 const SETTINGS_KEY = 'diorama3d-settings-v1';
-const settings = { showTimer: false, dayNight: true, showFps: false };
+const settings = { showTimer: false, dayNight: true, showFps: false, where: 'vr', whereChosen: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* valores por defecto */ }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* nada */ } }
 const anims = new Set();   // mallas deslizándose a su sitio tras un encastre
@@ -226,6 +284,7 @@ function buildGame({ count, mode, seed, saved = null }) {
   if (!restored) {
     for (const p of state.pieces) makeGroup([p]);
     layout(renderer.xr.isPresenting, true);
+    Object.assign(orbit, ORBIT_PLAY);
   }
   state.inGame = true;
   state.complete = state.groups.size === 1;
@@ -462,7 +521,8 @@ let hintTimer = 0;
 function hint(text, secs = 6) { $('hint').textContent = text; $('hint').classList.remove('hidden'); hintTimer = secs; }
 
 // ---------------------------------------------------------------- cámara orbital
-const orbit = { az: 0.35, pol: 1.02, dist: 1.85 };
+const ORBIT_MENU = { az: 0.45, pol: 1.3, dist: 1.75 }, ORBIT_PLAY = { az: 0.35, pol: 1.02, dist: 1.85 };
+const orbit = { ...ORBIT_MENU };
 function updateCamera() {
   const sp = Math.sin(orbit.pol);
   camera.position.set(
@@ -652,7 +712,7 @@ const hands = [0, 1].map((i) => {
   const h = {
     c, hand, ray, tip, src: null, isHand: false,
     pose: new THREE.Matrix4(), tracked: false,   // punto y orientación de agarre, en el mundo
-    held: null, offset: new THREE.Matrix4(), pull: null, hover: null, cand: null,
+    held: null, offset: new THREE.Matrix4(), pull: null, hover: null, cand: null, ui: null,
     handMesh: null, meshRoot: null, meshSide: null, meshReady: false,
   };
   c.addEventListener('connected', (e) => { h.src = e.data; h.isHand = !!(e.data && e.data.hand); tip.visible = !h.isHand; if (h.isHand) ensureHandMesh(h, e.data.handedness); });
@@ -697,14 +757,19 @@ function pickVR(h) {
     if (d < bd) { bd = d; best = p; }
   }
   if (best) return { group: best.group, dist: 0, point: null };
+  setHandRay(h);
+  const hit = pickPiece();
+  return hit ? { group: hit.object.userData.piece.group, dist: hit.distance, point: hit.point } : null;
+}
+// Deja en "raycaster" el rayo con el que apunta la mano o el mando.
+function setHandRay(h) {
   h.c.getWorldPosition(tp);
   tp2.set(0, 0, -1).applyQuaternion(h.c.getWorldQuaternion(q1));
   raycaster.set(tp, tp2);
   raycaster.far = 6;
-  const hit = pickPiece();
-  return hit ? { group: hit.object.userData.piece.group, dist: hit.distance, point: hit.point } : null;
 }
 function grabVR(h) {
+  if (h.ui && !h.held) { pressBar(h); return; }
   if (!state.playing || h.held) return;
   refreshPose(h);
   const pk = pickVR(h);
@@ -745,23 +810,35 @@ function updateHands(dt) {
       }
       // la pieza sigue a la mano con total libertad: posición y giro
       if (h.tracked) m1.multiplyMatrices(h.pose, h.offset).decompose(g.position, g.quaternion, tS);
-      h.hover = g;
+      h.hover = g; h.ui = null;
       h.ray.visible = false;
       const cand = findSnap(g, false);
       if (cand && !h.cand) pulse(h, 0.25, 15); // aviso: si la sueltas aquí, encaja
       h.cand = cand;
     } else {
       h.cand = null;
-      const pk = state.playing && h.src && h.tracked ? pickVR(h) : null;
+      let pk = null, ui = null;
+      if (h.src && h.tracked) {
+        pk = state.playing ? pickVR(h) : null;
+        // la barra de iconos: gana si el rayo la toca antes que a una pieza (y no hay una pieza al alcance de la mano)
+        if (!pk || pk.dist > 0) {
+          setHandRay(h);
+          ui = bar.pick(raycaster);
+          if (ui && pk && pk.dist < ui.dist) ui = null;
+        }
+      }
+      h.ui = ui ? ui.btn : null;
+      if (h.ui) pk = null;
       h.hover = pk ? pk.group : null;
       h.ray.visible = true;
-      h.ray.scale.z = pk && pk.dist > 0 ? pk.dist : (pk ? 0.001 : 1.5);
+      h.ray.scale.z = ui ? ui.dist : pk && pk.dist > 0 ? pk.dist : (pk ? 0.001 : 1.5);
     }
   }
 }
 
-// mode: 'immersive-vr' (mundo virtual) o 'immersive-ar' (realidad mixta: las piezas flotan en tu habitación)
-let xrMixed = false;
+// Una sola sesión sirve para las dos cosas: si el visor ofrece realidad mixta se abre una sesión
+// "immersive-ar" y el mundo virtual se muestra u oculta al instante (xrMixed), sin salir del visor.
+let xrMixed = false, xrOK = false, arOK = false, xrPassthrough = false;
 const SKY_COLOR = scene.background, SKY_FOG = scene.fog;
 function setMixed(on) {
   xrMixed = on;
@@ -769,41 +846,95 @@ function setMixed(on) {
   scene.background = on ? null : SKY_COLOR;
   scene.fog = on ? null : SKY_FOG;
 }
-async function enterVR(mode = 'immersive-vr') {
-  if (!navigator.xr) return;
+async function enterXR(mixed) {
+  if (!navigator.xr || renderer.xr.isPresenting) return;
+  const mode = arOK ? 'immersive-ar' : 'immersive-vr';
   try {
     const session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
-    setMixed(mode === 'immersive-ar');
+    xrPassthrough = mode === 'immersive-ar';
+    setMixed(mixed && xrPassthrough);
     await renderer.xr.setSession(session);
   } catch (e) {
+    xrPassthrough = false;
     setMixed(false);
     hint('No se pudo iniciar la sesión: ' + e.message);
   }
 }
+function exitXR() { const s = renderer.xr.getSession(); if (s) s.end().catch(() => {}); }
+
+// --- barra de iconos dentro del visor ---
+function toggleRef() { showRef = !showRef; placeShowcase(); syncHud(); }
+function toggleSound() { sfx.init(); sfx.setMuted(!sfx.muted); syncHud(); }
+let restartArmed = 0; // "Nueva partida" pide confirmar con una segunda pulsación
+const bar = createVRBar([
+  { id: 'exit', icon: () => 'exit', label: () => 'Salir del visor', press: exitXR },
+  { id: 'mixed', icon: () => 'room', label: () => (xrMixed ? 'Volver al mundo virtual' : 'Realidad mixta: ver mi habitación'),
+    active: () => xrMixed, visible: () => xrPassthrough, press: () => setMixed(!xrMixed) },
+  { id: 'ref', icon: () => 'picture', label: () => (showRef ? 'Ocultar la miniatura de referencia' : 'Mostrar la miniatura de referencia'),
+    dim: () => !showRef, press: toggleRef },
+  { id: 'shuffle', icon: () => 'shuffle', label: () => 'Reordenar las piezas sueltas',
+    press: () => { if (state.inGame && !state.complete) { layout(true, false); scheduleSave(); } } },
+  { id: 'sound', icon: () => (sfx.muted ? 'mute' : 'sound'), label: () => (sfx.muted ? 'Activar el sonido' : 'Silenciar'), dim: () => sfx.muted, press: toggleSound },
+  { id: 'day', icon: () => (settings.dayNight ? 'sun' : 'moon'), label: () => (settings.dayNight ? 'Detener el ciclo de día y noche' : 'Activar el ciclo de día y noche'),
+    dim: () => !settings.dayNight, press: () => { settings.dayNight = !settings.dayNight; saveSettings(); $('opt-daynight').checked = settings.dayNight; } },
+  { id: 'new', icon: () => 'restart', label: () => (performance.now() < restartArmed ? 'Pulsa otra vez para confirmar' : 'Nueva partida'),
+    active: () => performance.now() < restartArmed,
+    press: () => { if (performance.now() < restartArmed) { restartArmed = 0; newGame(); } else restartArmed = performance.now() + 3500; } },
+]);
+scene.add(bar.group);
+function pressBar(h) {
+  const b = h.ui;
+  sfx.init(); sfx.pick();
+  pulse(h, 0.5, 30);
+  b.def.press();
+  bar.refresh();
+}
+let barTimer = 0, barTick = 0;
+function updateBar(dt) {
+  if (barTimer > 0) { // se coloca cuando ya se conoce la altura de la cabeza
+    barTimer -= dt;
+    if (barTimer <= 0) {
+      renderer.xr.getCamera().getWorldPosition(t1);
+      if (t1.y < 0.3) barTimer = 0.3; else bar.place(t1, C);
+    }
+  }
+  if (++barTick % 8 === 0) bar.refresh();
+  bar.update(dt, hands.map((h) => h.ui).filter(Boolean));
+}
+
 renderer.xr.addEventListener('sessionstart', () => {
   if (drag) endDrag();
   hoverGroup = null;
+  camera.clearViewOffset();
   panel.mesh.visible = true;
+  bar.group.visible = true; bar.refresh(); barTimer = 0.5;
   $('done').classList.add('hidden');
   if (state.inGame) layout(true, true);
 });
 renderer.xr.addEventListener('sessionend', () => {
-  for (const h of hands) { h.held = null; h.cand = null; h.pull = null; h.hover = null; }
+  for (const h of hands) { h.held = null; h.cand = null; h.pull = null; h.hover = null; h.ui = null; }
   panel.mesh.visible = false;
+  bar.group.visible = false;
+  xrPassthrough = false;
   setMixed(false);
   if (state.inGame) { layout(false, true); scheduleSave(); }
   onResize();
+  if (state.complete && state.playing) $('done').classList.remove('hidden');
 });
+function refreshXRSupport() {
+  $('btn-vr').classList.toggle('hidden', !xrOK);
+  $('btn-ar').classList.toggle('hidden', !arOK);
+  $('where-box').classList.toggle('hidden', !xrOK);
+  $('seg-where').querySelector('[data-v="mixed"]').classList.toggle('hidden', !arOK);
+  if (!xrOK) settings.where = 'screen'; else if (settings.where === 'mixed' && !arOK) settings.where = 'vr';
+  for (const x of $('seg-where').children) x.classList.toggle('on', x.dataset.v === settings.where);
+  $('vr-note').textContent = xrOK ? '' : 'Para jugar con el visor, abre esta página (por HTTPS) en el navegador de tu Meta Quest.';
+}
 if (navigator.xr && navigator.xr.isSessionSupported) {
-  navigator.xr.isSessionSupported('immersive-vr').then((ok) => {
-    if (ok) { $('btn-vr').classList.remove('hidden'); $('btn-vr-menu').classList.remove('hidden'); }
-    else $('vr-note').textContent = 'Para jugar en VR abre esta página (por HTTPS) en el navegador de tu Meta Quest.';
-  }).catch(() => {});
-  navigator.xr.isSessionSupported('immersive-ar').then((ok) => {
-    if (ok) { $('btn-ar').classList.remove('hidden'); $('btn-ar-menu').classList.remove('hidden'); }
-  }).catch(() => {});
-} else {
-  $('vr-note').textContent = 'Para jugar en VR abre esta página (por HTTPS) en el navegador de tu Meta Quest.';
+  Promise.all([
+    navigator.xr.isSessionSupported('immersive-vr').catch(() => false),
+    navigator.xr.isSessionSupported('immersive-ar').catch(() => false),
+  ]).then(([vr, ar]) => { xrOK = vr || ar; arOK = ar; if (settings.where === 'screen' && xrOK && !settings.whereChosen) settings.where = 'vr'; refreshXRSupport(); });
 }
 
 // ---------------------------------------------------------------- menú
@@ -817,14 +948,17 @@ let selCount = 50, selMode = 'relax';
 const puzzles = [...DIORAMAS];
 let loadingModel = null;
 function setBusy(text) {
-  for (const id of ['btn-start', 'btn-continue', 'btn-vr-menu', 'btn-ar-menu']) $(id).disabled = !!text;
-  $('sel-puzzle').disabled = !!text;
+  for (const id of ['btn-start', 'btn-continue']) $(id).disabled = !!text;
+  $('puzzle-grid').classList.toggle('busy', !!text);
   if (text !== null) $('puzzle-note').textContent = text || '';
+}
+function markSelected() {
+  for (const el of $('puzzle-grid').children) el.classList.toggle('on', el.dataset.id === model.id);
 }
 // Cambia el modelo activo. Devuelve true si quedó cargado.
 async function selectPuzzle(id) {
   if (loadingModel) await loadingModel.catch(() => {});
-  if (model.id === id) { $('sel-puzzle').value = id; return true; }
+  if (model.id === id) { markSelected(); return true; }
   const pz = puzzles.find((p) => p.id === id);
   if (!pz) { $('puzzle-note').textContent = 'Ese modelo ya no está en la carpeta "modelos".'; return false; }
   setBusy(`Cargando «${pz.name}»…`);
@@ -843,13 +977,14 @@ async function selectPuzzle(id) {
     await loadingModel;
     setBusy('');
     $('puzzle-note').textContent = pz.build ? '' : `${Math.round(model.positions.length / 9000)} mil triángulos`;
-    $('sel-puzzle').value = id;
+    markSelected();
+    if (!getThumb(pz)) saveThumb(pz, renderThumb(showcase, model.size));
     return true;
   } catch (e) {
     console.error(e);
     setBusy('');
     $('puzzle-note').textContent = `No se pudo cargar «${pz.name}»: ${e.message}`;
-    $('sel-puzzle').value = model.id;
+    markSelected();
     return false;
   } finally {
     loadingModel = null;
@@ -857,21 +992,53 @@ async function selectPuzzle(id) {
   }
 }
 function fillPuzzleList() {
-  const sel = $('sel-puzzle');
-  sel.innerHTML = '';
-  for (const p of puzzles) { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; sel.appendChild(o); }
-  sel.value = model.id;
+  const grid = $('puzzle-grid');
+  grid.innerHTML = '';
+  for (const p of puzzles) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pz'; b.dataset.id = p.id; b.title = p.name;
+    const thumb = getThumb(p);
+    b.innerHTML = `<span class="thumb"><img alt="" ${thumb ? `src="${thumb}"` : 'class="empty"'}><span class="badge">${svgIcon('check', 14)}</span></span><span class="name"></span>`;
+    b.querySelector('.name').textContent = p.name;
+    b.addEventListener('click', () => { if (!grid.classList.contains('busy')) selectPuzzle(p.id); });
+    grid.appendChild(b);
+  }
+  markSelected();
 }
-$('sel-puzzle').addEventListener('change', (e) => selectPuzzle(e.target.value));
 fillPuzzleList();
 fetch('modelos/index.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])).then((list) => {
-  for (const it of list) if (it && it.file) puzzles.push({ id: it.file, name: it.name || it.file, url: 'modelos/' + it.file.split('/').map(encodeURIComponent).join('/') });
+  for (const it of list) if (it && it.file) puzzles.push({ id: it.file, name: it.name || it.file, mb: it.mb, url: 'modelos/' + it.file.split('/').map(encodeURIComponent).join('/') });
   fillPuzzleList();
   refreshContinue();
 }).catch(() => {});
+// Las miniaturas que falten de los dioramas incluidos se dibujan de a una, sin trabar la página.
+async function makeMissingThumbs() {
+  try { // limpia miniaturas de versiones anteriores
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(THUMB_PREFIX) && !k.startsWith(THUMB_PREFIX + APP_VERSION + ':')) localStorage.removeItem(k);
+    }
+  } catch (e) { /* sin almacenamiento */ }
+  for (const pz of DIORAMAS) {
+    if (getThumb(pz) || renderer.xr.isPresenting) continue;
+    await new Promise((r) => setTimeout(r, 60));
+    if (pz.id === model.id) { saveThumb(pz, renderThumb(showcase, model.size)); continue; }
+    const m = buildBuiltin(pz), mesh = buildMesh(slice(m, 1, 1)[0], m);
+    saveThumb(pz, renderThumb(mesh, m.size));
+    disposeMesh(mesh);
+  }
+}
+setTimeout(makeMissingThumbs, 400);
 function refreshContinue() {
-  const canContinue = (state.inGame && !state.complete) || !!loadSave();
-  $('btn-continue').classList.toggle('hidden', !canContinue);
+  const live = state.inGame && !state.complete, s = live ? null : loadSave();
+  $('btn-continue').classList.toggle('hidden', !(live || s));
+  let detail = '';
+  if (live) detail = `${model.name} · ${state.total - state.groups.size + 1}/${state.total}`;
+  else if (s) {
+    const pz = puzzles.find((p) => p.id === (s.puzzle || FARO.id));
+    detail = `${pz ? pz.name : 'Partida guardada'} · ${s.count - s.groups.length + 1}/${s.count}`;
+  }
+  $('continue-detail').textContent = detail;
 }
 function bindSeg(id, set) {
   const seg = $(id);
@@ -884,6 +1051,8 @@ function bindSeg(id, set) {
 bindSeg('seg-count', (v) => { selCount = +v; });
 bindSeg('seg-mode', (v) => { selMode = v; $('mode-note').textContent = MODE_NOTES[v]; });
 $('mode-note').textContent = MODE_NOTES.relax;
+// dónde se juega al pulsar "Nueva partida" o "Continuar": visor (virtual o mixta) o pantalla
+bindSeg('seg-where', (v) => { settings.where = v; settings.whereChosen = true; saveSettings(); });
 $('opt-timer').checked = settings.showTimer;
 $('opt-daynight').checked = settings.dayNight;
 $('opt-daynight').addEventListener('change', (e) => { settings.dayNight = e.target.checked; saveSettings(); });
@@ -891,6 +1060,20 @@ $('opt-fps').checked = settings.showFps;
 $('opt-fps').addEventListener('change', (e) => { settings.showFps = e.target.checked; saveSettings(); updateHud(true); });
 $('opt-timer').addEventListener('change', (e) => { settings.showTimer = e.target.checked; saveSettings(); updateHud(true); });
 
+// Con el menú abierto en pantallas anchas, la vista 3D se corre para que el diorama quede a la derecha del panel.
+function applyViewOffset() {
+  const open = !$('menu').classList.contains('hidden'), W = window.innerWidth, H = window.innerHeight;
+  if (open && W >= 900 && !renderer.xr.isPresenting) camera.setViewOffset(W, H, -Math.min(250, W * 0.22), 0, W, H);
+  else camera.clearViewOffset();
+}
+// Iconos de la barra superior de la página y su estado.
+const HUD_ICONS = { 'btn-ref': 'picture', 'btn-shuffle': 'shuffle', 'btn-sound': 'sound', 'btn-vr': 'vr', 'btn-ar': 'room', 'btn-menu': 'menu' };
+function syncHud() {
+  for (const id in HUD_ICONS) $(id).innerHTML = svgIcon(id === 'btn-sound' && sfx.muted ? 'mute' : HUD_ICONS[id]);
+  $('btn-ref').classList.toggle('off', !showRef);
+  $('btn-sound').classList.toggle('off', sfx.muted);
+  bar.refresh();
+}
 function showMenu() {
   state.playing = false;
   if (drag) endDrag();
@@ -899,11 +1082,14 @@ function showMenu() {
   $('hud').classList.add('hidden');
   $('done').classList.add('hidden');
   $('hint').classList.add('hidden');
+  if (!state.inGame) Object.assign(orbit, ORBIT_MENU);
   refreshContinue();
+  applyViewOffset();
 }
 function play() {
   $('menu').classList.add('hidden');
   $('hud').classList.remove('hidden');
+  applyViewOffset();
   state.playing = true;
   sfx.init();
   if (state.complete) $('done').classList.remove('hidden');
@@ -918,9 +1104,11 @@ function buildGameSafe() {
   buildGame({ count: selCount, mode: selMode, seed: (Math.random() * 2 ** 31) | 0 });
   saveNow();
   play();
-  hint(selMode === 'relax'
-    ? 'Arrastra una pieza junto a su vecina y suéltala para unirlas. Arrastra el fondo para girar la vista.'
-    : 'Clic derecho (o Mayús) + arrastrar gira la pieza. Q / E la hacen rodar.', 8);
+  if (!renderer.xr.isPresenting && settings.where === 'screen') {
+    hint(selMode === 'relax'
+      ? 'Arrastra una pieza junto a su vecina y suéltala para unirlas. Arrastra el fondo para girar la vista.'
+      : 'Clic derecho (o Mayús) + arrastrar gira la pieza. Q / E la hacen rodar.', 8);
+  }
 }
 async function continueGame() {
   if (!(state.inGame && !state.complete)) {
@@ -933,32 +1121,32 @@ async function continueGame() {
   }
   play();
 }
-$('btn-start').addEventListener('click', newGame);
-$('btn-continue').addEventListener('click', continueGame);
+// Al empezar se entra al visor (si corresponde) dentro del mismo gesto del usuario.
+function launch(start) {
+  if (xrOK && settings.where !== 'screen') enterXR(settings.where === 'mixed');
+  return start();
+}
+$('btn-start').addEventListener('click', () => launch(newGame));
+$('btn-continue').addEventListener('click', () => launch(continueGame));
 $('btn-menu').addEventListener('click', showMenu);
 $('btn-again').addEventListener('click', () => { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* nada */ } state.inGame = false; placeShowcase(); showMenu(); });
 $('btn-admire').addEventListener('click', () => $('done').classList.add('hidden'));
-$('btn-ref').addEventListener('click', () => { showRef = !showRef; placeShowcase(); });
+$('btn-ref').addEventListener('click', toggleRef);
 $('btn-shuffle').addEventListener('click', () => { layout(false, false); scheduleSave(); });
-$('btn-sound').addEventListener('click', () => {
-  sfx.setMuted(!sfx.muted);
-  $('btn-sound').textContent = 'Sonido: ' + (sfx.muted ? 'no' : 'sí');
-});
-$('btn-vr').addEventListener('click', () => enterVR('immersive-vr'));
-$('btn-ar').addEventListener('click', () => enterVR('immersive-ar'));
-function startImmersive(mode) {
-  const p = enterVR(mode); // debe pedirse dentro del gesto del usuario
-  if (state.inGame && !state.complete) continueGame(); else if (loadSave()) continueGame(); else newGame();
-  return p;
-}
-$('btn-vr-menu').addEventListener('click', () => startImmersive('immersive-vr'));
-$('btn-ar-menu').addEventListener('click', () => startImmersive('immersive-ar'));
+$('btn-sound').addEventListener('click', toggleSound);
+$('btn-vr').addEventListener('click', () => enterXR(false));
+$('btn-ar').addEventListener('click', () => enterXR(true));
+$('start-label').insertAdjacentHTML('beforebegin', svgIcon('play', 18));
+for (const el of document.querySelectorAll('[data-icon]')) el.insertAdjacentHTML('afterbegin', svgIcon(el.dataset.icon, +el.dataset.size || 18));
+syncHud();
+refreshXRSupport();
 window.addEventListener('pagehide', saveNow);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
 
 function onResize() {
   if (renderer.xr.isPresenting) return;
   camera.aspect = window.innerWidth / window.innerHeight;
+  applyViewOffset();
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
@@ -978,6 +1166,7 @@ function updateSky(dt) {
   hemi.color.copy(skyNow.hemi); hemi.groundColor.copy(skyNow.ground); hemi.intensity = skyNow.hemiI;
   skyUniforms.uA.value.copy(skyNow.sky); skyUniforms.uB.value.copy(skyNow.top);
   SKY_COLOR.copy(skyNow.sky); SKY_FOG.color.copy(skyNow.sky);
+  env.update(dt, lifeT, dayPhase, skyNow.night, sun); // astros, nubes, faroles y dirección de la luz
 }
 function tick(time) {
   const dt = Math.min(Math.max((time - lastTime) / 1000, 0), 0.1);
@@ -994,7 +1183,7 @@ function tick(time) {
   lifeT += dt;
   if (lifeShow && showcase.visible) lifeShow.update(dt, lifeT, skyNow.night);
   if (lifeGame) lifeGame.update(dt, lifeT, skyNow.night);
-  if (vr) updateHands(dt); else updateCamera();
+  if (vr) { updateHands(dt); updateBar(dt); } else updateCamera();
   if (drag && drag.group) drag.cand = findSnap(drag.group, true);
 
   // piezas deslizándose a su lugar
@@ -1043,7 +1232,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, orbit, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, orbit, bar, env, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {

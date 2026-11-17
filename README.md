@@ -23,7 +23,8 @@ python3 servidor.py
 | **Mientras arrastrás** | La rueda acerca o aleja la pieza |
 | **Táctil** | Un dedo mueve piezas o la cámara · pellizco = zoom |
 | **VR con mandos** | Gatillo o agarre toma la pieza (al alcance de la mano o apuntando con el rayo; viaja sola hasta la mano) · la palanca la aleja o acerca |
-| **Realidad mixta** | Botón "Realidad mixta": las piezas flotan en tu habitación real (Quest 3), con mandos o con las manos |
+| **Realidad mixta** | Las piezas flotan en tu habitación real (Quest 3). Se elige en el menú ("Dónde jugar") o se alterna dentro del visor, sin salir |
+| **Barra de iconos** | Flota sobre la zona de armado dentro del visor: salir, realidad mixta, miniatura de referencia, reordenar piezas, sonido, día y noche, nueva partida. Se apunta con el rayo y se pulsa con gatillo o pinza |
 | **VR con las manos** | Sin mandos: pinza (pulgar + índice) sobre la pieza, o apuntarla con el rayo y hacer pinza |
 
 Las piezas se unen **al soltarlas**. La pieza agarrada conserva su color; un aclarado muy
@@ -70,6 +71,8 @@ Para probar en local: `adb reverse tcp:8000 tcp:8000` y abrir `http://localhost:
 ## Cómo funciona
 
 - `js/dioramas/` — un archivo por diorama hecho por código (El Faro, El Mundo en Globo), más `builder.js` (herramientas comunes) e `index.js` (la lista del menú).
+- `js/environment.js` — el entorno virtual (pradera, plataforma, árboles, montañas, nubes, astros).
+- `js/vrbar.js` — la barra de iconos flotante dentro del visor. `js/icons.js` — los iconos.
 - `js/loader.js` — carga modelos glTF/GLB (texturas, Draco, Meshopt) y los lleva al mismo formato.
 - `js/slicer.js` — reparte semillas sobre la superficie y recorta cada triángulo contra
   las celdas de Voronoi; los cortes son planos compartidos, por eso las piezas encajan

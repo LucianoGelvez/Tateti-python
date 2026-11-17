@@ -62,7 +62,8 @@ const server = http.createServer((req, res) => {
     if (report.sizeMeters[1] < 0.2) report.warnings.push('Es muy chato: menos de 20 cm de alto en el juego.');
 
     // --- capturas del modelo completo ---
-    await page.evaluate(() => document.getElementById('menu').classList.add('hidden'));
+    // sin menú y sin el paisaje de fondo, para juzgar el diorama solo
+    await page.evaluate(() => { document.getElementById('menu').classList.add('hidden'); __game.studio(true); });
     const shot = async (name, orbit, phase) => {
       await page.evaluate(([o, ph]) => { Object.assign(__game.orbit, o); __game.setPhase(ph); }, [orbit, phase]);
       await page.waitForTimeout(1100);
@@ -80,7 +81,7 @@ const server = http.createServer((req, res) => {
     await shot('9-noche', { az: 0.3, pol: 1.3, dist: D }, 0.5);
 
     // --- el rompecabezas: cortar, mirar las piezas y armarlo entero ---
-    await page.evaluate(() => { __game.orbit.az = 0.35; __game.orbit.pol = 1.02; __game.orbit.dist = 1.85; __game.setPhase(0.03); document.getElementById('menu').classList.remove('hidden'); });
+    await page.evaluate(() => { __game.orbit.az = 0.35; __game.orbit.pol = 1.02; __game.orbit.dist = 1.85; __game.setPhase(0.03); __game.studio(false); document.getElementById('menu').classList.remove('hidden'); });
     report.puzzles = [];
     for (const count of [50, 100]) {
       await page.click(`#seg-count button[data-v="${count}"]`);
