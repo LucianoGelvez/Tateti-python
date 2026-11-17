@@ -9,6 +9,7 @@
 //   sparkle  destello sobre el agua, de día
 //   firefly  luciérnaga, de noche
 //   gulls    gaviotas dando vueltas, de día
+//   brooms   personas volando en escoba alrededor del modelo, día y noche
 //   city     luces de ciudad, de noche
 //   cloud    nube que deriva despacio
 //   flame    llama de quemador, que de noche ilumina desde dentro
@@ -166,6 +167,121 @@ export function buildLife(features, hostOf) {
           }
         }
       }, dispose() { host.object.remove(root); for (const g of geos) g.dispose(); for (const m of mats) m.dispose(); } });
+    }
+
+    else if (f.type === 'brooms') {
+      // Personas volando en escoba con capa ondeando al viento y destello mágico.
+      const root = new THREE.Group(); root.position.copy(P);
+      const u = (f.w || f.size * 0.1) * 0.22;
+      const count = f.count || 4;
+      const spd = f.speed || 1;
+      const woodM = new THREE.MeshLambertMaterial({ color: 0x5c3a21, transparent: true });
+      const brushM = new THREE.MeshLambertMaterial({ color: 0x8a6138, transparent: true });
+      const goldM = new THREE.MeshLambertMaterial({ color: 0xd4a846, transparent: true });
+      const robeM = new THREE.MeshLambertMaterial({ color: 0x1d212a, transparent: true });
+      const skinM = new THREE.MeshLambertMaterial({ color: 0xedc49d, transparent: true });
+      const hatM = new THREE.MeshLambertMaterial({ color: 0x161922, transparent: true });
+      const houseColors = [0xa82820, 0x1f6e3c, 0x224c8a, 0xc99626];
+      const capeMats = houseColors.map((hex) => new THREE.MeshLambertMaterial({ color: hex, transparent: true, side: THREE.DoubleSide }));
+      const mats = [woodM, brushM, goldM, robeM, skinM, hatM, ...capeMats];
+
+      const gStick = new THREE.CylinderGeometry(u * 0.13, u * 0.16, u * 8.2, 6); gStick.rotateX(Math.PI / 2);
+      const gRing = new THREE.CylinderGeometry(u * 0.23, u * 0.23, u * 0.35, 8); gRing.rotateX(Math.PI / 2);
+      const gBrush = new THREE.CylinderGeometry(u * 0.22, u * 0.85, u * 3.0, 8); gBrush.rotateX(Math.PI / 2);
+      const gTorso = new THREE.CylinderGeometry(u * 0.54, u * 0.66, u * 2.2, 7); gTorso.rotateX(0.62);
+      const gHead = new THREE.SphereGeometry(u * 0.58, 8, 6);
+      const gBrim = new THREE.CylinderGeometry(u * 1.12, u * 1.16, u * 0.14, 10); gBrim.rotateX(-0.20);
+      const gHat = new THREE.ConeGeometry(u * 0.60, u * 1.85, 8); gHat.rotateX(-0.24);
+      const gArm = new THREE.CylinderGeometry(u * 0.17, u * 0.15, u * 1.75, 5); gArm.rotateX(1.22);
+      const gLeg = new THREE.CylinderGeometry(u * 0.20, u * 0.16, u * 1.35, 5); gLeg.rotateX(-0.45);
+      const gGlow = new THREE.SphereGeometry(u * 0.55, 8, 6);
+      const makeCape = (z0, z1, w0, w1) => {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+          -w0, 0, z0, w0, 0, z0, w1, 0, z1,
+          -w0, 0, z0, w1, 0, z1, -w1, 0, z1,
+        ]), 3));
+        g.computeVertexNormals();
+        return g;
+      };
+      const gCapeIn = makeCape(0, -u * 2.6, u * 0.58, u * 0.86);
+      const gCapeOut = makeCape(0, -u * 2.3, u * 0.86, u * 1.05);
+      const geos = [gStick, gRing, gBrush, gTorso, gHead, gBrim, gHat, gArm, gLeg, gGlow, gCapeIn, gCapeOut];
+      const glowMats = [];
+      const riders = [];
+
+      for (let i = 0; i < count; i++) {
+        const b = new THREE.Group();
+        const stick = new THREE.Mesh(gStick, woodM); stick.position.z = u * 0.5;
+        const ring = new THREE.Mesh(gRing, goldM); ring.position.z = -u * 3.45;
+        const brush = new THREE.Mesh(gBrush, brushM); brush.position.z = -u * 4.9;
+        const torso = new THREE.Mesh(gTorso, robeM); torso.position.set(0, u * 1.0, u * 0.45);
+        const head = new THREE.Mesh(gHead, skinM); head.position.set(0, u * 2.15, u * 1.35);
+        const brim = new THREE.Mesh(gBrim, hatM); brim.position.set(0, u * 2.55, u * 1.32);
+        const hat = new THREE.Mesh(gHat, hatM); hat.position.set(0, u * 3.35, u * 1.15);
+        b.add(stick, ring, brush, torso, head, brim, hat);
+
+        for (const side of [-1, 1]) {
+          const arm = new THREE.Mesh(gArm, robeM);
+          arm.position.set(side * u * 0.36, u * 1.15, u * 1.68);
+          arm.rotation.y = -side * 0.25;
+          const leg = new THREE.Mesh(gLeg, robeM);
+          leg.position.set(side * u * 0.42, -u * 0.35, -u * 0.05);
+          leg.rotation.z = side * 0.22;
+          b.add(arm, leg);
+        }
+
+        const cMat = capeMats[i % capeMats.length];
+        const capeIn = new THREE.Group(); capeIn.position.set(0, u * 1.55, u * 0.65);
+        const capeOut = new THREE.Group(); capeOut.position.set(0, 0, -u * 2.6);
+        capeOut.add(new THREE.Mesh(gCapeOut, cMat));
+        capeIn.add(new THREE.Mesh(gCapeIn, cMat), capeOut);
+        b.add(capeIn);
+
+        const gm = glowMat(0xffe99a);
+        glowMats.push(gm);
+        const glow = new THREE.Mesh(gGlow, gm);
+        glow.position.set(0, u * 0.15, u * 4.75);
+        b.add(glow);
+
+        root.add(b);
+        const dir = spd >= 0 ? 1 : -1;
+        riders.push({
+          b, capeIn, capeOut, gm, dir,
+          ph: (i / count) * Math.PI * 2,
+          rx: f.size * (1.12 + 0.14 * (i % 2)),
+          rz: f.size * (0.70 + 0.12 * (i % 2)),
+          sp: (0.42 - 0.04 * (i % 3)) * spd,
+          y: ((i % 2) - 0.5) * f.size * 0.10,
+          ampY: f.size * 0.05,
+        });
+      }
+
+      host.object.add(noRay(root));
+      effects.push({ host, a: 0, update(dt, t, night) {
+        for (const m of mats) m.opacity = this.a;
+        root.visible = this.a > 0.02;
+        if (!root.visible) return;
+        for (const g of riders) {
+          const ang = t * g.sp + g.ph;
+          const x = Math.cos(ang) * g.rx, z = Math.sin(ang) * g.rz;
+          const y = g.y + Math.sin(ang * 2 + g.ph) * g.ampY;
+          g.b.position.set(x, y, z);
+
+          const vx = -Math.sin(ang) * g.rx * g.dir;
+          const vz = Math.cos(ang) * g.rz * g.dir;
+          const vy = 2 * Math.cos(ang * 2 + g.ph) * g.ampY * g.dir;
+          const yaw = Math.atan2(vx, vz);
+          const pitch = -Math.atan2(vy, Math.hypot(vx, vz));
+          const roll = -0.28 * g.dir + Math.sin(t * 1.9 + g.ph) * 0.08;
+          g.b.rotation.set(pitch, yaw, roll, 'YXZ');
+
+          const wave = Math.sin(t * 7.5 + g.ph);
+          g.capeIn.rotation.x = -0.18 + wave * 0.22;
+          g.capeOut.rotation.x = Math.sin(t * 7.5 + g.ph - 1.1) * 0.36;
+          g.gm.opacity = this.a * (0.18 + 0.78 * night) * (0.85 + 0.15 * Math.sin(t * 9 + g.ph));
+        }
+      }, dispose() { host.object.remove(root); for (const g of geos) g.dispose(); for (const m of mats) m.dispose(); for (const m of glowMats) m.dispose(); } });
     }
 
     else if (f.type === 'flame') {

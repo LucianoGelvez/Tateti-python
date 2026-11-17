@@ -126,6 +126,7 @@ modelo. Cada efecto se asigna a la pieza que contiene `pos`.
 | `sparkle` | día | `size` | Chispazo blanco breve y repetido. Agua, nieve, cristales, tesoros. `size` ≈ 0,01. |
 | `cloud` | siempre | `center`, `size` | Nube de cinco copos que va y viene girando despacio alrededor del eje vertical que pasa por `center`. `size` ≈ radio del copo mayor. |
 | `gulls` | día | `size` | Tres pájaros que dan vueltas alrededor de `pos`, con radios de `0,7` a `1,2 × size`. Uno por diorama alcanza. |
+| `brooms` | siempre | `size`, `w`?, `count`?, `speed`? | Personas volando en escoba con capa ondeando y brillo cálido nocturno, orbitando alrededor de `pos` con radio `~size`. |
 
 Notas:
 - Los puntos de luz (`firefly`, `city`, `sparkle`) que caen en una misma pieza comparten el

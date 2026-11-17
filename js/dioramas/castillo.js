@@ -954,7 +954,6 @@ export function buildCastillo(seed = 41) {
     addGeo(new THREE.ConeGeometry(0.027, 0.048, 24, 5), 0x1c282e, { p: [ox, y0 + 0.128, oz], colorFn: slateColor });
     addDetailWin([ox + 0.020, y0 + 0.048, oz + 0.008], 1.2, 0.0075, 0.018, true);
     addDetailWin([ox, y0 + 0.048, oz - 0.022], Math.PI, 0.0075, 0.018, true);
-    features.push({ type: 'gulls', pos: [ox + 0.02, y0 + 0.155, oz + 0.02], size: 0.14 });
   }
 
   // Círculo de Piedras al salir del Puente Cubierto de Madera (-0.412, -0.142)
@@ -1102,6 +1101,10 @@ export function buildCastillo(seed = 41) {
   for (const [cx, cy, cz, cs] of cloudRing) {
     features.push({ type: 'cloud', pos: [cx, cy, cz], center: [0, cy, -0.04], size: cs });
   }
+
+  // Personas volando en escoba dando la vuelta a todo el castillo (circuito amplio + circuito alto sobre las agujas)
+  features.push({ type: 'brooms', pos: [0.0, 0.265, -0.04], size: 0.34, w: 0.028, count: 4, speed: 1 });
+  features.push({ type: 'brooms', pos: [-0.05, 0.440, -0.02], size: 0.22, w: 0.026, count: 2, speed: -1.15 });
 
   return finish('El Castillo de Hogwarts');
 }
