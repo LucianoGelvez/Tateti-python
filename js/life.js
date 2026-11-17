@@ -170,90 +170,216 @@ export function buildLife(features, hostOf) {
     }
 
     else if (f.type === 'brooms') {
-      // Personas volando en escoba con capa ondeando al viento y destello mágico.
+      // Personas volando en escoba con modelado detallado, gafas de vuelo, estribos y capa plisada naranja oscuro.
       const root = new THREE.Group(); root.position.copy(P);
       const u = (f.w || f.size * 0.1) * 0.22;
-      const count = f.count || 4;
+      const count = f.count || 3;
       const spd = f.speed || 1;
-      const woodM = new THREE.MeshLambertMaterial({ color: 0x5c3a21, transparent: true });
-      const brushM = new THREE.MeshLambertMaterial({ color: 0x8a6138, transparent: true });
-      const goldM = new THREE.MeshLambertMaterial({ color: 0xd4a846, transparent: true });
-      const robeM = new THREE.MeshLambertMaterial({ color: 0x1d212a, transparent: true });
-      const skinM = new THREE.MeshLambertMaterial({ color: 0xedc49d, transparent: true });
-      const hatM = new THREE.MeshLambertMaterial({ color: 0x161922, transparent: true });
-      const houseColors = [0xa82820, 0x1f6e3c, 0x224c8a, 0xc99626];
-      const capeMats = houseColors.map((hex) => new THREE.MeshLambertMaterial({ color: hex, transparent: true, side: THREE.DoubleSide }));
-      const mats = [woodM, brushM, goldM, robeM, skinM, hatM, ...capeMats];
 
-      const gStick = new THREE.CylinderGeometry(u * 0.13, u * 0.16, u * 8.2, 6); gStick.rotateX(Math.PI / 2);
-      const gRing = new THREE.CylinderGeometry(u * 0.23, u * 0.23, u * 0.35, 8); gRing.rotateX(Math.PI / 2);
-      const gBrush = new THREE.CylinderGeometry(u * 0.22, u * 0.85, u * 3.0, 8); gBrush.rotateX(Math.PI / 2);
-      const gTorso = new THREE.CylinderGeometry(u * 0.54, u * 0.66, u * 2.2, 7); gTorso.rotateX(0.62);
-      const gHead = new THREE.SphereGeometry(u * 0.58, 8, 6);
-      const gBrim = new THREE.CylinderGeometry(u * 1.12, u * 1.16, u * 0.14, 10); gBrim.rotateX(-0.20);
-      const gHat = new THREE.ConeGeometry(u * 0.60, u * 1.85, 8); gHat.rotateX(-0.24);
-      const gArm = new THREE.CylinderGeometry(u * 0.17, u * 0.15, u * 1.75, 5); gArm.rotateX(1.22);
-      const gLeg = new THREE.CylinderGeometry(u * 0.20, u * 0.16, u * 1.35, 5); gLeg.rotateX(-0.45);
-      const gGlow = new THREE.SphereGeometry(u * 0.55, 8, 6);
-      const makeCape = (z0, z1, w0, w1) => {
-        const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
-          -w0, 0, z0, w0, 0, z0, w1, 0, z1,
-          -w0, 0, z0, w1, 0, z1, -w1, 0, z1,
-        ]), 3));
-        g.computeVertexNormals();
-        return g;
+      const woodM = new THREE.MeshLambertMaterial({ color: 0x59351c, transparent: true });
+      const darkWoodM = new THREE.MeshLambertMaterial({ color: 0x3b2211, transparent: true });
+      const brushLightM = new THREE.MeshLambertMaterial({ color: 0x8c5e32, transparent: true });
+      const brushDarkM = new THREE.MeshLambertMaterial({ color: 0x5b3a1c, transparent: true });
+      const brassM = new THREE.MeshLambertMaterial({ color: 0xd4a642, transparent: true });
+      const robeM = new THREE.MeshLambertMaterial({ color: 0x1b1f28, transparent: true });
+      const coatFlapM = new THREE.MeshLambertMaterial({ color: 0x1e232e, transparent: true, side: THREE.DoubleSide });
+      const leatherM = new THREE.MeshLambertMaterial({ color: 0x362214, transparent: true });
+      const skinM = new THREE.MeshLambertMaterial({ color: 0xedc49d, transparent: true });
+      const hairM = new THREE.MeshLambertMaterial({ color: 0x2e1d12, transparent: true });
+      const lensM = new THREE.MeshLambertMaterial({ color: 0x7fc8d6, transparent: true });
+      const hatM = new THREE.MeshLambertMaterial({ color: 0x141720, transparent: true });
+      const capeM = new THREE.MeshLambertMaterial({ color: 0xb84a18, transparent: true, side: THREE.DoubleSide });
+      const mats = [woodM, darkWoodM, brushLightM, brushDarkM, brassM, robeM, coatFlapM, leatherM, skinM, hairM, lensM, hatM, capeM];
+
+      const geos = [];
+      const reg = (g) => { geos.push(g); return g; };
+      const UP = new THREE.Vector3(0, 1, 0);
+      const makeSeg = (ax, ay, az, bx, by, bz, r0, r1, segs = 7) => {
+        const a = new THREE.Vector3(ax, ay, az), b = new THREE.Vector3(bx, by, bz);
+        const dir = b.clone().sub(a), len = dir.length();
+        const g = new THREE.CylinderGeometry(r1, r0, len, segs);
+        dir.normalize();
+        if (dir.y < -0.9999) g.rotateX(Math.PI);
+        else g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UP, dir));
+        const mid = a.add(b).multiplyScalar(0.5);
+        g.translate(mid.x, mid.y, mid.z);
+        return reg(g);
       };
-      const gCapeIn = makeCape(0, -u * 2.6, u * 0.58, u * 0.86);
-      const gCapeOut = makeCape(0, -u * 2.3, u * 0.86, u * 1.05);
-      const geos = [gStick, gRing, gBrush, gTorso, gHead, gBrim, gHat, gArm, gLeg, gGlow, gCapeIn, gCapeOut];
+
+      const makePleatedCape = (z0, z1, w0, w1, arch0, arch1, notch = 0) => {
+        const xs = [-1, -0.64, -0.28, 0, 0.28, 0.64, 1];
+        const pleats = [0.06, -0.05, 0.05, 0.08, 0.05, -0.05, 0.06];
+        const pos = [];
+        for (let s = 0; s < xs.length - 1; s++) {
+          const tA = xs[s], tB = xs[s + 1];
+          const fA = pleats[s], fB = pleats[s + 1];
+          const p = (t, w, arch, pl, zEnd) => [
+            t * w,
+            arch * (1 - t * t * 0.72) + pl * u,
+            zEnd,
+          ];
+          const z1A = z1 + (Math.abs(tA) < 0.35 ? notch : 0);
+          const z1B = z1 + (Math.abs(tB) < 0.35 ? notch : 0);
+          const a0 = p(tA, w0, arch0, fA * 0.4, z0);
+          const b0 = p(tB, w0, arch0, fB * 0.4, z0);
+          const a1 = p(tA, w1, arch1, fA, z1A);
+          const b1 = p(tB, w1, arch1, fB, z1B);
+          pos.push(...a0, ...b0, ...b1, ...a0, ...b1, ...a1);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+        g.computeVertexNormals();
+        return reg(g);
+      };
+
+      // Geometría compartida de la escoba de carreras (mango curvo en S + pomo + virolas + estribos + haces de ramas)
+      const broomParts = [
+        [makeSeg(0, u * 0.14, -u * 4.3, 0, u * 0.05, -u * 2.5, u * 0.14, u * 0.13, 8), woodM],
+        [makeSeg(0, u * 0.05, -u * 2.5, 0, -u * 0.08, -u * 0.5, u * 0.13, u * 0.16, 8), woodM],
+        [makeSeg(0, -u * 0.08, -u * 0.5, 0, u * 0.10, u * 1.4, u * 0.16, u * 0.15, 8), woodM],
+        [makeSeg(0, u * 0.10, u * 1.4, 0, u * 0.38, u * 3.1, u * 0.15, u * 0.13, 8), woodM],
+        [makeSeg(0, u * 0.38, u * 3.1, 0, u * 0.60, u * 4.35, u * 0.13, u * 0.09, 8), woodM],
+        [reg(new THREE.SphereGeometry(u * 0.12, 8, 6)).translate(0, u * 0.62, u * 4.42), darkWoodM],
+        [reg(new THREE.CylinderGeometry(u * 0.15, u * 0.15, u * 0.22, 8)).rotateX(Math.PI / 2 - 0.16).translate(0, u * 0.38, u * 3.1), brassM],
+        // Virolas y anillos metálicos sujetando el cepillo
+        [reg(new THREE.CylinderGeometry(u * 0.24, u * 0.26, u * 0.38, 10)).rotateX(Math.PI / 2).translate(0, u * 0.06, -u * 2.65), brassM],
+        [reg(new THREE.TorusGeometry(u * 0.29, u * 0.045, 6, 12)).translate(0, u * 0.07, -u * 3.05), brassM],
+        [reg(new THREE.TorusGeometry(u * 0.36, u * 0.045, 6, 12)).translate(0, u * 0.08, -u * 3.42), brassM],
+        // Núcleo del cepillo de ramas
+        [reg(new THREE.CylinderGeometry(u * 0.22, u * 0.62, u * 3.1, 10)).rotateX(Math.PI / 2).translate(0, u * 0.09, -u * 4.35), brushDarkM],
+        // Anillo soporte de los estribos
+        [reg(new THREE.CylinderGeometry(u * 0.19, u * 0.19, u * 0.22, 8)).rotateX(Math.PI / 2).translate(0, -u * 0.06, u * 0.05), brassM],
+      ];
+
+      // 8 haces individuales de ramas cónicas alrededor de la cola de la escoba
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        const flare = k % 2 === 0 ? 0.68 : 0.48;
+        const lenTail = k % 2 === 0 ? 5.95 : 5.55;
+        const sx = Math.cos(a) * u * 0.20, sy = u * 0.08 + Math.sin(a) * u * 0.18;
+        const ex = Math.cos(a) * u * flare, ey = u * 0.10 + Math.sin(a) * u * flare;
+        broomParts.push([
+          makeSeg(sx, sy, -u * 2.85, ex, ey, -u * lenTail, u * 0.16, u * 0.04, 5),
+          k % 2 === 0 ? brushLightM : brushDarkM,
+        ]);
+      }
+
+      // Estribos laterales (correas + pedales metálicos)
+      for (const side of [-1, 1]) {
+        broomParts.push(
+          [makeSeg(side * u * 0.14, -u * 0.08, u * 0.05, side * u * 0.44, -u * 0.80, u * 0.22, u * 0.045, u * 0.04, 5), leatherM],
+          [makeSeg(side * u * 0.30, -u * 0.81, u * 0.22, side * u * 0.58, -u * 0.81, u * 0.22, u * 0.045, u * 0.045, 5), brassM],
+        );
+      }
+
+      // Anatomía y vestimenta del volador (pose aerodinámica inclinada hacia adelante)
+      const bodyParts = [
+        // Pelvis y cintura + cinturón de cuero con hebilla dorada
+        [makeSeg(0, u * 0.34, -u * 0.35, 0, u * 0.88, u * 0.25, u * 0.48, u * 0.46, 8), robeM],
+        [makeSeg(0, u * 0.56, -u * 0.10, 0, u * 0.68, u * 0.03, u * 0.49, u * 0.49, 10), leatherM],
+        [reg(new THREE.BoxGeometry(u * 0.24, u * 0.20, u * 0.14)).translate(0, u * 0.72, u * 0.36), brassM],
+        // Pecho y hombros redondeados
+        [makeSeg(0, u * 0.84, u * 0.20, 0, u * 1.42, u * 0.92, u * 0.48, u * 0.58, 9), robeM],
+        [reg(new THREE.SphereGeometry(u * 0.30, 8, 6)).translate(u * 0.54, u * 1.38, u * 0.88), robeM],
+        [reg(new THREE.SphereGeometry(u * 0.30, 8, 6)).translate(-u * 0.54, u * 1.38, u * 0.88), robeM],
+        // Faldones de la túnica abriéndose a ambos lados tras la cadera
+        [makeSeg(u * 0.30, u * 0.42, -u * 0.30, u * 0.54, u * 0.28, -u * 1.45, u * 0.32, u * 0.18, 5), coatFlapM],
+        [makeSeg(-u * 0.30, u * 0.42, -u * 0.30, -u * 0.54, u * 0.28, -u * 1.45, u * 0.32, u * 0.18, 5), coatFlapM],
+        // Bufanda naranja oscuro enrollada al cuello + extremo ondeando atrás + broches dorados de capa
+        [reg(new THREE.TorusGeometry(u * 0.46, u * 0.14, 7, 12)).rotateX(Math.PI / 2 - 0.55).translate(0, u * 1.54, u * 1.04), capeM],
+        [makeSeg(u * 0.28, u * 1.50, u * 0.84, u * 0.42, u * 1.62, -u * 0.55, u * 0.18, u * 0.10, 5), capeM],
+        [reg(new THREE.SphereGeometry(u * 0.11, 7, 5)).translate(u * 0.42, u * 1.48, u * 0.96), brassM],
+        [reg(new THREE.SphereGeometry(u * 0.11, 7, 5)).translate(-u * 0.42, u * 1.48, u * 0.96), brassM],
+        // Cuello, cabeza y mechones de cabello al viento
+        [makeSeg(0, u * 1.46, u * 0.94, 0, u * 1.82, u * 1.24, u * 0.26, u * 0.24, 7), skinM],
+        [reg(new THREE.SphereGeometry(u * 0.49, 10, 8)).translate(0, u * 2.04, u * 1.38), skinM],
+        [reg(new THREE.SphereGeometry(u * 0.46, 8, 6)).translate(0, u * 2.12, u * 1.22), hairM],
+        [makeSeg(u * 0.24, u * 1.98, u * 1.06, u * 0.38, u * 2.02, u * 0.42, u * 0.15, u * 0.04, 5), hairM],
+        [makeSeg(-u * 0.24, u * 1.98, u * 1.06, -u * 0.38, u * 2.02, u * 0.42, u * 0.15, u * 0.04, 5), hairM],
+        [makeSeg(0, u * 2.06, u * 0.96, 0, u * 2.12, u * 0.30, u * 0.18, u * 0.05, 5), hairM],
+        // Correa de cuero + gafas de vuelo con marco dorado y lentes cian
+        [reg(new THREE.CylinderGeometry(u * 0.50, u * 0.50, u * 0.14, 12)).rotateX(-0.20).translate(0, u * 2.07, u * 1.38), leatherM],
+        [reg(new THREE.TorusGeometry(u * 0.14, u * 0.04, 6, 10)).translate(u * 0.19, u * 2.05, u * 1.82), brassM],
+        [reg(new THREE.TorusGeometry(u * 0.14, u * 0.04, 6, 10)).translate(-u * 0.19, u * 2.05, u * 1.82), brassM],
+        [reg(new THREE.SphereGeometry(u * 0.12, 8, 6)).scale(1, 1, 0.55).translate(u * 0.19, u * 2.05, u * 1.83), lensM],
+        [reg(new THREE.SphereGeometry(u * 0.12, 8, 6)).scale(1, 1, 0.55).translate(-u * 0.19, u * 2.05, u * 1.83), lensM],
+        // Sombrero de mago con ala ancha, cinta naranja oscuro y punta arqueada hacia atrás
+        [reg(new THREE.CylinderGeometry(u * 1.04, u * 1.10, u * 0.10, 14)).rotateX(-0.28).translate(0, u * 2.38, u * 1.34), hatM],
+        [reg(new THREE.CylinderGeometry(u * 0.52, u * 0.56, u * 0.16, 12)).rotateX(-0.28).translate(0, u * 2.48, u * 1.32), capeM],
+        [makeSeg(0, u * 2.42, u * 1.32, 0, u * 3.35, u * 0.92, u * 0.54, u * 0.24, 10), hatM],
+        [makeSeg(0, u * 3.35, u * 0.92, 0, u * 3.82, u * 0.22, u * 0.24, u * 0.03, 8), hatM],
+      ];
+
+      // Brazos articulados (hombro -> codo -> antebrazo -> guante agarrando el mango con manos alternadas)
+      const handTargets = [
+        { side: 1, hx: u * 0.11, hy: u * 0.26, hz: u * 2.05 },
+        { side: -1, hx: -u * 0.11, hy: u * 0.18, hz: u * 1.55 },
+      ];
+      for (const h of handTargets) {
+        const sx = h.side * u * 0.54, sy = u * 1.38, sz = u * 0.88;
+        const ex = h.side * u * 0.58, ey = u * 0.78, ez = u * 1.24;
+        bodyParts.push(
+          [makeSeg(sx, sy, sz, ex, ey, ez, u * 0.20, u * 0.16, 6), robeM],
+          [reg(new THREE.SphereGeometry(u * 0.16, 6, 5)).translate(ex, ey, ez), robeM],
+          [makeSeg(ex, ey, ez, h.hx, h.hy, h.hz, u * 0.16, u * 0.13, 6), robeM],
+          [reg(new THREE.SphereGeometry(u * 0.16, 7, 5)).translate(h.hx, h.hy, h.hz), leatherM],
+        );
+      }
+
+      // Piernas articuladas (cadera -> rodilla flexionada -> espinilla -> bota apoyada en el estribo)
+      for (const side of [-1, 1]) {
+        const kx = side * u * 0.54, ky = -u * 0.18, kz = u * 0.42;
+        const ax = side * u * 0.44, ay = -u * 0.74, az = u * 0.20;
+        bodyParts.push(
+          [makeSeg(side * u * 0.34, u * 0.34, -u * 0.28, kx, ky, kz, u * 0.24, u * 0.20, 6), robeM],
+          [reg(new THREE.SphereGeometry(u * 0.20, 7, 5)).translate(kx, ky, kz), robeM],
+          [makeSeg(kx, ky, kz, ax, ay, az, u * 0.19, u * 0.15, 6), leatherM],
+          [makeSeg(ax, ay - u * 0.05, az, ax, ay - u * 0.10, az + u * 0.36, u * 0.15, u * 0.11, 6), leatherM],
+        );
+      }
+
+      // Capa plisada en 3 tramos articulados color naranja oscuro (0xb84a18)
+      const gCape1 = makePleatedCape(0, -u * 2.1, u * 0.56, u * 0.88, u * 0.14, u * 0.18);
+      const gCape2 = makePleatedCape(0, -u * 2.2, u * 0.88, u * 1.16, u * 0.18, u * 0.22);
+      const gCape3 = makePleatedCape(0, -u * 2.2, u * 1.16, u * 1.38, u * 0.22, u * 0.14, u * 0.42);
+      const gGlowFront = reg(new THREE.SphereGeometry(u * 0.42, 8, 6));
+      const gGlowTail = reg(new THREE.SphereGeometry(u * 0.30, 7, 5));
+
       const glowMats = [];
       const riders = [];
 
       for (let i = 0; i < count; i++) {
         const b = new THREE.Group();
-        const stick = new THREE.Mesh(gStick, woodM); stick.position.z = u * 0.5;
-        const ring = new THREE.Mesh(gRing, goldM); ring.position.z = -u * 3.45;
-        const brush = new THREE.Mesh(gBrush, brushM); brush.position.z = -u * 4.9;
-        const torso = new THREE.Mesh(gTorso, robeM); torso.position.set(0, u * 1.0, u * 0.45);
-        const head = new THREE.Mesh(gHead, skinM); head.position.set(0, u * 2.15, u * 1.35);
-        const brim = new THREE.Mesh(gBrim, hatM); brim.position.set(0, u * 2.55, u * 1.32);
-        const hat = new THREE.Mesh(gHat, hatM); hat.position.set(0, u * 3.35, u * 1.15);
-        b.add(stick, ring, brush, torso, head, brim, hat);
+        for (const [g, m] of broomParts) b.add(new THREE.Mesh(g, m));
+        for (const [g, m] of bodyParts) b.add(new THREE.Mesh(g, m));
 
-        for (const side of [-1, 1]) {
-          const arm = new THREE.Mesh(gArm, robeM);
-          arm.position.set(side * u * 0.36, u * 1.15, u * 1.68);
-          arm.rotation.y = -side * 0.25;
-          const leg = new THREE.Mesh(gLeg, robeM);
-          leg.position.set(side * u * 0.42, -u * 0.35, -u * 0.05);
-          leg.rotation.z = side * 0.22;
-          b.add(arm, leg);
-        }
+        const cape1 = new THREE.Group(); cape1.position.set(0, u * 1.50, u * 0.72);
+        const cape2 = new THREE.Group(); cape2.position.set(0, 0, -u * 2.1);
+        const cape3 = new THREE.Group(); cape3.position.set(0, 0, -u * 2.2);
+        cape3.add(new THREE.Mesh(gCape3, capeM));
+        cape2.add(new THREE.Mesh(gCape2, capeM), cape3);
+        cape1.add(new THREE.Mesh(gCape1, capeM), cape2);
+        b.add(cape1);
 
-        const cMat = capeMats[i % capeMats.length];
-        const capeIn = new THREE.Group(); capeIn.position.set(0, u * 1.55, u * 0.65);
-        const capeOut = new THREE.Group(); capeOut.position.set(0, 0, -u * 2.6);
-        capeOut.add(new THREE.Mesh(gCapeOut, cMat));
-        capeIn.add(new THREE.Mesh(gCapeIn, cMat), capeOut);
-        b.add(capeIn);
-
-        const gm = glowMat(0xffe99a);
-        glowMats.push(gm);
-        const glow = new THREE.Mesh(gGlow, gm);
-        glow.position.set(0, u * 0.15, u * 4.75);
-        b.add(glow);
+        const gmFront = glowMat(0xffe08a);
+        const gmTail = glowMat(0xff9438);
+        glowMats.push(gmFront, gmTail);
+        const glowFront = new THREE.Mesh(gGlowFront, gmFront);
+        glowFront.position.set(0, u * 0.65, u * 4.65);
+        const glowTail = new THREE.Mesh(gGlowTail, gmTail);
+        glowTail.position.set(0, u * 0.10, -u * 5.85);
+        b.add(glowFront, glowTail);
 
         root.add(b);
         const dir = spd >= 0 ? 1 : -1;
         riders.push({
-          b, capeIn, capeOut, gm, dir,
+          b, cape1, cape2, cape3, gmFront, gmTail, dir,
           ph: (i / count) * Math.PI * 2,
-          rx: f.size * (1.12 + 0.14 * (i % 2)),
-          rz: f.size * (0.70 + 0.12 * (i % 2)),
-          sp: (0.42 - 0.04 * (i % 3)) * spd,
-          y: ((i % 2) - 0.5) * f.size * 0.10,
-          ampY: f.size * 0.05,
+          rx: f.size * (1.14 + 0.08 * (i % 3)),
+          rz: f.size * (0.76 + 0.06 * (i % 3)),
+          sp: (0.42 - 0.035 * i) * spd,
+          y: (i - (count - 1) * 0.5) * f.size * 0.09,
+          ampY: f.size * 0.055,
         });
       }
 
@@ -273,13 +399,22 @@ export function buildLife(features, hostOf) {
           const vy = 2 * Math.cos(ang * 2 + g.ph) * g.ampY * g.dir;
           const yaw = Math.atan2(vx, vz);
           const pitch = -Math.atan2(vy, Math.hypot(vx, vz));
-          const roll = -0.28 * g.dir + Math.sin(t * 1.9 + g.ph) * 0.08;
+          const roll = 0.28 * g.dir + Math.sin(t * 1.9 + g.ph) * 0.08;
           g.b.rotation.set(pitch, yaw, roll, 'YXZ');
 
-          const wave = Math.sin(t * 7.5 + g.ph);
-          g.capeIn.rotation.x = -0.18 + wave * 0.22;
-          g.capeOut.rotation.x = Math.sin(t * 7.5 + g.ph - 1.1) * 0.36;
-          g.gm.opacity = this.a * (0.18 + 0.78 * night) * (0.85 + 0.15 * Math.sin(t * 9 + g.ph));
+          const w1 = Math.sin(t * 7.8 + g.ph);
+          const w2 = Math.sin(t * 7.8 + g.ph - 1.0);
+          const w3 = Math.sin(t * 7.8 + g.ph - 2.0);
+          g.cape1.rotation.x = -0.14 + w1 * 0.18;
+          g.cape1.rotation.y = Math.cos(t * 4.2 + g.ph) * 0.06;
+          g.cape2.rotation.x = w2 * 0.28;
+          g.cape2.rotation.z = Math.sin(t * 5.4 + g.ph) * 0.08;
+          g.cape3.rotation.x = w3 * 0.36;
+          g.cape3.rotation.y = Math.sin(t * 6.0 + g.ph - 1.2) * 0.10;
+
+          const flicker = 0.85 + 0.15 * Math.sin(t * 9 + g.ph);
+          g.gmFront.opacity = this.a * (0.16 + 0.78 * night) * flicker;
+          g.gmTail.opacity = this.a * (0.08 + 0.52 * night) * flicker;
         }
       }, dispose() { host.object.remove(root); for (const g of geos) g.dispose(); for (const m of mats) m.dispose(); for (const m of glowMats) m.dispose(); } });
     }

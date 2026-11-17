@@ -1102,9 +1102,8 @@ export function buildCastillo(seed = 41) {
     features.push({ type: 'cloud', pos: [cx, cy, cz], center: [0, cy, -0.04], size: cs });
   }
 
-  // Personas volando en escoba dando la vuelta a todo el castillo (circuito amplio + circuito alto sobre las agujas)
-  features.push({ type: 'brooms', pos: [0.0, 0.265, -0.04], size: 0.34, w: 0.028, count: 4, speed: 1 });
-  features.push({ type: 'brooms', pos: [-0.05, 0.440, -0.02], size: 0.22, w: 0.026, count: 2, speed: -1.15 });
+  // 3 personas volando en escoba con capa naranja oscuro dando la vuelta a todo el castillo
+  features.push({ type: 'brooms', pos: [0.0, 0.275, -0.04], size: 0.34, w: 0.032, count: 3, speed: 1 });
 
   return finish('El Castillo de Hogwarts');
 }
