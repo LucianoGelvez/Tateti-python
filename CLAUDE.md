@@ -12,6 +12,7 @@ Sitio estático, sin paso de compilación: three.js vendorizado en `js/vendor/`.
 - `js/main.js` — escena, entrada (ratón, mandos, manos), encastre, guardado, menú.
 - `js/slicer.js` — corte del modelo en piezas (Voronoi). `js/loader.js` — modelos GLB externos.
 - `js/life.js` — efectos vivos y ciclo de día y noche.
+- `js/music.js` — música de fondo por diorama (sintetizada; capas que crecen con el progreso). `js/audio.js` — efectos.
 - `js/environment.js` — entorno virtual (se oculta entero en realidad mixta).
 - `js/vrbar.js` — barra de iconos dentro del visor (salir, realidad mixta, referencia…). `js/icons.js` — iconos.
 - `js/dioramas/` — un archivo por diorama hecho por código + `builder.js` + `index.js` (menú).

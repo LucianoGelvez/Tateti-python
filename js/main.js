@@ -5,6 +5,7 @@ import { mulberry32 } from './dioramas/builder.js';
 import { slice } from './slicer.js';
 import { loadGLB, normalizeModel } from './loader.js';
 import { Sfx } from './audio.js';
+import { themeFor } from './music.js';
 import { buildLife, dayNight, newSky } from './life.js';
 import { XRHandMeshModel } from './vendor/addons/webxr/XRHandMeshModel.js';
 import { buildEnvironment } from './environment.js';
@@ -36,6 +37,7 @@ const sun = new THREE.DirectionalLight(0xfff0d8, 2.3);
 sun.position.set(1.5, 3, 2);
 scene.add(sun);
 
+let standMesh = null;
 const envOnly = []; // lo que se oculta en realidad mixta para ver la habitación real
 const env = buildEnvironment(C); // pradera, plataforma, árboles, montañas, nubes, astros
 { // cielo en degradé
@@ -55,6 +57,7 @@ const env = buildEnvironment(C); // pradera, plataforma, árboles, montañas, nu
   const stand = new THREE.Mesh(new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 28), new THREE.MeshLambertMaterial({ color: 0xb08a5e }));
   stand.position.set(C.x, 0, C.z);
   scene.add(stand);
+  standMesh = stand;
 }
 
 const world = new THREE.Group(); // contiene los grupos de piezas
@@ -185,7 +188,7 @@ function placeShowcase() {
   if (state.inGame) {
     showcase.scale.setScalar(0.3);
     showcase.position.set(C.x, PEDESTAL_Y + model.size[1] / 2 * 0.3 + 0.004, C.z);
-    showcase.visible = showRef;
+    showcase.visible = showRef && !state.complete;
   } else {
     showcase.scale.setScalar(1);
     showcase.position.copy(C);
@@ -201,7 +204,7 @@ const state = {
 };
 const sfx = new Sfx();
 const SETTINGS_KEY = 'diorama3d-settings-v1';
-const settings = { showTimer: false, dayNight: true, showFps: false, where: 'vr', whereChosen: false };
+const settings = { showTimer: false, dayNight: true, showFps: false, music: true, where: 'vr', whereChosen: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* valores por defecto */ }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* nada */ } }
 const anims = new Set();   // mallas deslizándose a su sitio tras un encastre
@@ -214,10 +217,10 @@ const m1 = new THREE.Matrix4(), m2 = new THREE.Matrix4();
 const IDENT_Q = new THREE.Quaternion();
 
 function worldCentroid(g, out = V()) {
-  return out.copy(g.userData.centroid).applyQuaternion(g.quaternion).add(g.position);
+  return out.copy(g.userData.centroid).multiplyScalar(g.scale.x).applyQuaternion(g.quaternion).add(g.position);
 }
 function setPivot(g, pivot) { // coloca el grupo para que su centroide quede en "pivot"
-  g.position.copy(g.userData.centroid).applyQuaternion(g.quaternion).multiplyScalar(-1).add(pivot);
+  g.position.copy(g.userData.centroid).multiplyScalar(g.scale.x).applyQuaternion(g.quaternion).multiplyScalar(-1).add(pivot);
 }
 function recomputeCentroid(g) {
   const c = g.userData.centroid.set(0, 0, 0);
@@ -239,7 +242,8 @@ function clearGame() {
   for (const p of state.pieces) disposeMesh(p.mesh);
   for (const g of state.groups) world.remove(g);
   state.pieces = []; state.groups.clear(); anims.clear();
-  state.finale = null; state.complete = false;
+  state.finale = null; state.complete = false; zoomAnim = null; twoHand = null;
+  if (standMesh) standMesh.visible = true;
   drag = null; hoverGroup = null;
   for (const h of hands) h.held = null;
   confetti.visible = false;
@@ -411,12 +415,97 @@ function onComplete(g) {
   state.complete = true;
   for (const h of hands) h.held = null;
   if (drag) endDrag();
-  state.finale = { t: 0, g, fromQ: g.quaternion.clone(), fromP: worldCentroid(g), angle: 0 };
+  state.finale = { t: 0, g, fromQ: g.quaternion.clone(), fromPos: g.position.clone(), fromScale: g.scale.x, scale: 1, angle: 0 };
+  placeShowcase();
+  syncHud();
   sfx.complete();
   burstConfetti();
   $('done-text').textContent = settings.showTimer ? `${state.total} piezas en ${fmtTime(state.elapsed)}` : `${state.total} piezas`;
   if (!renderer.xr.isPresenting) $('done').classList.remove('hidden');
   updateHud(true);
+}
+
+// ---------------------------------------------------------------- agrandar el modelo terminado
+// Con el rompecabezas completo, el modelo se puede agrandar o achicar: con los botones (barra del
+// visor o de la página), con las dos manos (agarrarlo con ambas y separarlas, como estirando) o con
+// la palanca horizontal del mando mientras se lo sostiene.
+const SCALE_MIN = 0.35, SCALE_MAX = 16;
+let zoomAnim = null;   // { g, s0, s1, t, anchor }
+let twoHand = null;    // { g, a, b, d0, s0, mid0, yaw0, G0 }
+const completedGroup = () => (state.complete && state.groups.size === 1 ? [...state.groups][0] : null);
+const bottomLocal = (out) => out.set(0, -model.size[1] / 2, 0); // el modelo está centrado en el origen
+// Exhibición: centrado sobre el pedestal; al crecer baja hasta el suelo y se aleja para no tapar al jugador.
+function displayPos(s, q, out) {
+  const h = model.size[1], r = Math.hypot(model.size[0], model.size[2]) / 2; // radio hasta las esquinas: el modelo gira
+  const rest = C.y - h / 2;
+  const bottom = s <= 1 ? C.y - h * s / 2 : rest + (0.005 - rest) * THREE.MathUtils.smoothstep(s, 1.3, 3.2);
+  tS.set(C.x, bottom, C.z - Math.max(0, s - 1) * r - 0.45 * THREE.MathUtils.smoothstep(s, 1, 2.5));
+  return out.copy(bottomLocal(t3)).multiplyScalar(s).applyQuaternion(q).multiplyScalar(-1).add(tS);
+}
+function scaleAbout(g, anchor, s) {
+  const f = s / g.scale.x;
+  g.position.sub(anchor).multiplyScalar(f).add(anchor);
+  g.scale.setScalar(s);
+}
+function zoomModel(factor) {
+  const g = completedGroup();
+  if (!g) return;
+  if (hands.some((h) => h.held === g)) return; // mientras se sostiene, se escala con las manos
+  const f = state.finale && state.finale.g === g ? state.finale : null;
+  const cur = f ? f.scale : g.scale.x;
+  const target = factor === 0 ? 1 : THREE.MathUtils.clamp(cur * factor, SCALE_MIN, SCALE_MAX);
+  g.updateMatrixWorld(true);
+  zoomAnim = { g, s0: cur, s1: target, t: 0, anchor: f ? null : bottomLocal(V()).applyMatrix4(g.matrixWorld) };
+  if (!renderer.xr.isPresenting) orbit.dist = THREE.MathUtils.clamp(orbit.dist * Math.pow(target / cur, 0.8), 0.7, maxOrbit(target));
+  sfx.init(); sfx.pick();
+}
+function resetModelSize() { // vuelve a la exhibición original: centrado, tamaño 1 y girando
+  const g = completedGroup();
+  if (!g) return;
+  for (const h of hands) if (h.held === g) { h.held = null; h.pull = null; }
+  twoHand = null; zoomAnim = null;
+  q2.copy(g.quaternion); t2.set(0, 0, 1).applyQuaternion(q2);
+  state.finale = { t: 0, g, fromQ: g.quaternion.clone(), fromPos: g.position.clone(), fromScale: g.scale.x, scale: 1, angle: Math.atan2(t2.x, t2.z) };
+  if (!renderer.xr.isPresenting) orbit.dist = Math.min(orbit.dist, maxOrbit(1));
+}
+function updateZoom(dt) {
+  const z = zoomAnim;
+  if (!z) return;
+  z.t = Math.min(1, z.t + dt / 0.45);
+  const k = z.t * z.t * (3 - 2 * z.t), s = z.s0 + (z.s1 - z.s0) * k;
+  if (state.finale && state.finale.g === z.g) state.finale.scale = s;
+  else if (z.anchor) scaleAbout(z.g, z.anchor, s);
+  if (z.t >= 1) zoomAnim = null;
+}
+const maxOrbit = (s) => 4 * Math.max(1, s * 0.75);
+// Dos manos sobre el modelo: la distancia entre ellas da la escala y el giro horizontal, el giro del modelo.
+function startTwoHand(a, b, g) {
+  state.finale = null; zoomAnim = null;
+  a.pull = null; b.pull = null;
+  tp.setFromMatrixPosition(a.pose); tp2.setFromMatrixPosition(b.pose);
+  g.updateMatrix();
+  twoHand = { g, a, b, d0: Math.max(0.02, tp.distanceTo(tp2)), s0: g.scale.x, mid0: tp.clone().add(tp2).multiplyScalar(0.5),
+    yaw0: Math.atan2(tp2.x - tp.x, tp2.z - tp.z), G0: g.matrix.clone() };
+  pulse(a, 0.3, 25); pulse(b, 0.3, 25);
+}
+const mTwo = new THREE.Matrix4(), mT = new THREE.Matrix4(), qY = new THREE.Quaternion(), vS = V(), UPY = new THREE.Vector3(0, 1, 0);
+function updateTwoHand() {
+  const T = twoHand;
+  tp.setFromMatrixPosition(T.a.pose); tp2.setFromMatrixPosition(T.b.pose);
+  const s = THREE.MathUtils.clamp(T.s0 * tp.distanceTo(tp2) / T.d0, SCALE_MIN, SCALE_MAX), f = s / T.s0;
+  const yaw = Math.atan2(tp2.x - tp.x, tp2.z - tp.z) - T.yaw0;
+  t3.copy(tp).add(tp2).multiplyScalar(0.5);
+  mTwo.compose(t3, qY.setFromAxisAngle(UPY, yaw), vS.setScalar(f));
+  mT.makeTranslation(-T.mid0.x, -T.mid0.y, -T.mid0.z);
+  mTwo.multiply(mT).multiply(T.G0).decompose(T.g.position, T.g.quaternion, T.g.scale);
+  T.g.scale.setScalar(THREE.MathUtils.clamp(T.g.scale.x, SCALE_MIN, SCALE_MAX));
+}
+function endTwoHand(released) { // la otra mano sigue sosteniendo el modelo
+  const T = twoHand, other = released === T.a ? T.b : T.a;
+  twoHand = null;
+  T.g.updateMatrix();
+  m2.copy(other.pose).invert();
+  other.offset.multiplyMatrices(m2, T.g.matrix);
 }
 
 // ---------------------------------------------------------------- confeti
@@ -523,13 +612,18 @@ function hint(text, secs = 6) { $('hint').textContent = text; $('hint').classLis
 // ---------------------------------------------------------------- cámara orbital
 const ORBIT_MENU = { az: 0.45, pol: 1.3, dist: 1.75 }, ORBIT_PLAY = { az: 0.35, pol: 1.02, dist: 1.85 };
 const orbit = { ...ORBIT_MENU };
-function updateCamera() {
+const orbitTarget = C.clone();
+function updateCamera(dt = 0.016) {
+  // con el modelo terminado, la cámara mira a su centro (que se mueve al agrandarlo)
+  const g = completedGroup();
+  if (g) { worldCentroid(g, t3); t3.y = Math.max(t3.y, 0.4); } else t3.copy(C);
+  orbitTarget.lerp(t3, Math.min(1, dt * 4));
   const sp = Math.sin(orbit.pol);
   camera.position.set(
-    C.x + orbit.dist * sp * Math.sin(orbit.az),
-    C.y + orbit.dist * Math.cos(orbit.pol),
-    C.z + orbit.dist * sp * Math.cos(orbit.az));
-  camera.lookAt(C);
+    orbitTarget.x + orbit.dist * sp * Math.sin(orbit.az),
+    orbitTarget.y + orbit.dist * Math.cos(orbit.pol),
+    orbitTarget.z + orbit.dist * sp * Math.cos(orbit.az));
+  camera.lookAt(orbitTarget);
 }
 
 // ---------------------------------------------------------------- ratón / táctil
@@ -617,7 +711,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
     const d = Math.hypot(a.x - b.x, a.y - b.y);
-    if (pinch > 0) orbit.dist = THREE.MathUtils.clamp(orbit.dist * (pinch / d), 0.7, 4);
+    if (pinch > 0) orbit.dist = THREE.MathUtils.clamp(orbit.dist * (pinch / d), 0.7, maxOrbit(completedGroup() ? completedGroup().scale.x : 1));
     pinch = d;
     return;
   }
@@ -663,7 +757,7 @@ canvas.addEventListener('wheel', (e) => {
     dragPlane.constant -= d * 0.05; // aleja o acerca la pieza
     applyMove(drag.last);
   } else {
-    orbit.dist = THREE.MathUtils.clamp(orbit.dist * (1 + d * 0.1), 0.7, 4);
+    orbit.dist = THREE.MathUtils.clamp(orbit.dist * (1 + d * 0.1), 0.7, maxOrbit(completedGroup() ? completedGroup().scale.x : 1));
   }
 }, { passive: false });
 window.addEventListener('keydown', (e) => {
@@ -752,8 +846,9 @@ function pickVR(h) {
   tp.setFromMatrixPosition(h.pose);
   let best = null, bd = 0.05;
   for (const p of state.pieces) {
-    tp2.copy(p.centroid).applyQuaternion(p.group.quaternion).add(p.group.position);
-    const d = tp2.distanceTo(tp) - p.radius * 0.6;
+    const sc = p.group.scale.x;
+    tp2.copy(p.centroid).multiplyScalar(sc).applyQuaternion(p.group.quaternion).add(p.group.position);
+    const d = tp2.distanceTo(tp) - p.radius * 0.6 * sc;
     if (d < bd) { bd = d; best = p; }
   }
   if (best) return { group: best.group, dist: 0, point: null };
@@ -766,7 +861,7 @@ function setHandRay(h) {
   h.c.getWorldPosition(tp);
   tp2.set(0, 0, -1).applyQuaternion(h.c.getWorldQuaternion(q1));
   raycaster.set(tp, tp2);
-  raycaster.far = 6;
+  raycaster.far = state.complete ? 40 : 6;
 }
 function grabVR(h) {
   if (h.ui && !h.held) { pressBar(h); return; }
@@ -774,34 +869,56 @@ function grabVR(h) {
   refreshPose(h);
   const pk = pickVR(h);
   if (!pk) return;
-  for (const o of hands) if (o !== h && o.held === pk.group) { o.held = null; o.cand = null; o.pull = null; }
+  const other = hands.find((o) => o !== h && o.held === pk.group);
+  if (other && state.complete) { // segunda mano sobre el modelo terminado: escalar y girar con las dos
+    h.held = pk.group;
+    startTwoHand(other, h, pk.group);
+    sfx.pick();
+    return;
+  }
+  if (other) { other.held = null; other.cand = null; other.pull = null; }
   if (state.finale && state.finale.g === pk.group) state.finale = null;
+  if (zoomAnim && zoomAnim.g === pk.group) zoomAnim = null;
   h.held = pk.group;
   pk.group.updateMatrix();
   m2.copy(h.pose).invert();
   h.offset.multiplyMatrices(m2, pk.group.matrix);
   // tomada a distancia: la pieza viaja hasta la mano (punto apuntado → punto de agarre)
-  h.pull = pk.point ? pk.point.clone().applyMatrix4(m2) : null;
+  h.pull = pk.point && !state.complete ? pk.point.clone().applyMatrix4(m2) : null; // el modelo terminado se maneja a distancia
   sfx.pick();
   pulse(h, 0.3, 25);
 }
 function releaseVR(h) {
   const g = h.held;
   if (!g) return;
+  if (twoHand && (twoHand.a === h || twoHand.b === h)) endTwoHand(h);
   h.held = null; h.cand = null; h.pull = null;
   if (!trySnap(g, false)) sfx.drop();   // las piezas se unen al soltar
   scheduleSave();
 }
 function updateHands(dt) {
+  for (const h of hands) refreshPose(h);
+  if (twoHand) {
+    if (twoHand.a.held !== twoHand.g || twoHand.b.held !== twoHand.g) twoHand = null;
+    else updateTwoHand();
+  }
   for (const h of hands) {
-    refreshPose(h);
+    if (twoHand && (twoHand.a === h || twoHand.b === h)) { h.hover = h.held; h.ui = null; h.ray.visible = false; h.cand = null; continue; }
     if (h.held) {
       const g = h.held;
       const E = h.offset.elements;
       // la palanca del mando acerca o aleja la pieza
       const ax = h.src && h.src.gamepad && h.src.gamepad.axes;
       const stick = ax ? (Math.abs(ax[3] || 0) > 0.15 ? ax[3] : (Math.abs(ax[1] || 0) > 0.15 ? ax[1] : 0)) : 0;
-      if (stick) { h.pull = null; E[14] = Math.min(E[14] + stick * dt * 1.2, 0.3); }
+      if (stick) { h.pull = null; E[14] = Math.min(E[14] + stick * dt * 1.2 * Math.max(1, g.scale.x * 0.6), 0.3); }
+      // con el modelo terminado, la palanca hacia los lados lo agranda o achica
+      const sx = ax && state.complete ? (Math.abs(ax[2] || 0) > 0.2 ? ax[2] : (Math.abs(ax[0] || 0) > 0.2 && !ax[2] ? ax[0] : 0)) : 0;
+      if (sx) {
+        const s = THREE.MathUtils.clamp(g.scale.x * Math.exp(sx * dt * 1.4), SCALE_MIN, SCALE_MAX);
+        tp.setFromMatrixPosition(h.pose);
+        g.updateMatrix(); scaleAbout(g, tp, s); g.updateMatrix();
+        m2.copy(h.pose).invert(); h.offset.multiplyMatrices(m2, g.matrix);
+      }
       if (h.pull) {
         const k = 1 - Math.exp(-dt * 9);
         tp.set(0, 0, h.isHand ? 0 : -0.03).sub(h.pull);
@@ -865,16 +982,21 @@ function exitXR() { const s = renderer.xr.getSession(); if (s) s.end().catch(() 
 // --- barra de iconos dentro del visor ---
 function toggleRef() { showRef = !showRef; placeShowcase(); syncHud(); }
 function toggleSound() { sfx.init(); sfx.setMuted(!sfx.muted); syncHud(); }
+function toggleMusic() { sfx.init(); settings.music = !settings.music; saveSettings(); sfx.setMusicOn(settings.music); $('opt-music').checked = settings.music; syncHud(); }
 let restartArmed = 0; // "Nueva partida" pide confirmar con una segunda pulsación
 const bar = createVRBar([
   { id: 'exit', icon: () => 'exit', label: () => 'Salir del visor', press: exitXR },
   { id: 'mixed', icon: () => 'room', label: () => (xrMixed ? 'Volver al mundo virtual' : 'Realidad mixta: ver mi habitación'),
     active: () => xrMixed, visible: () => xrPassthrough, press: () => setMixed(!xrMixed) },
   { id: 'ref', icon: () => 'picture', label: () => (showRef ? 'Ocultar la miniatura de referencia' : 'Mostrar la miniatura de referencia'),
-    dim: () => !showRef, press: toggleRef },
-  { id: 'shuffle', icon: () => 'shuffle', label: () => 'Reordenar las piezas sueltas',
+    dim: () => !showRef, visible: () => !state.complete, press: toggleRef },
+  { id: 'shuffle', icon: () => 'shuffle', label: () => 'Reordenar las piezas sueltas', visible: () => !state.complete,
     press: () => { if (state.inGame && !state.complete) { layout(true, false); scheduleSave(); } } },
+  { id: 'shrink', icon: () => 'zoomout', label: () => 'Achicar el modelo', visible: () => state.complete, press: () => zoomModel(1 / 1.6) },
+  { id: 'size1', icon: () => 'size1', label: () => 'Tamaño y lugar originales', visible: () => state.complete, press: resetModelSize },
+  { id: 'grow', icon: () => 'zoomin', label: () => 'Agrandar el modelo (o agárralo con las dos manos y sepáralas)', visible: () => state.complete, press: () => zoomModel(1.6) },
   { id: 'sound', icon: () => (sfx.muted ? 'mute' : 'sound'), label: () => (sfx.muted ? 'Activar el sonido' : 'Silenciar'), dim: () => sfx.muted, press: toggleSound },
+  { id: 'music', icon: () => (settings.music ? 'music' : 'musicoff'), label: () => (settings.music ? 'Apagar la música' : 'Encender la música'), dim: () => !settings.music, press: toggleMusic },
   { id: 'day', icon: () => (settings.dayNight ? 'sun' : 'moon'), label: () => (settings.dayNight ? 'Detener el ciclo de día y noche' : 'Activar el ciclo de día y noche'),
     dim: () => !settings.dayNight, press: () => { settings.dayNight = !settings.dayNight; saveSettings(); $('opt-daynight').checked = settings.dayNight; } },
   { id: 'new', icon: () => 'restart', label: () => (performance.now() < restartArmed ? 'Pulsa otra vez para confirmar' : 'Nueva partida'),
@@ -978,6 +1100,7 @@ async function selectPuzzle(id) {
     setBusy('');
     $('puzzle-note').textContent = pz.build ? '' : `${Math.round(model.positions.length / 9000)} mil triángulos`;
     markSelected();
+    sfx.setTheme(themeFor(pz));
     if (!getThumb(pz)) saveThumb(pz, renderThumb(showcase, model.size));
     return true;
   } catch (e) {
@@ -1055,6 +1178,15 @@ $('mode-note').textContent = MODE_NOTES.relax;
 // dónde se juega al pulsar "Nueva partida" o "Continuar": visor (virtual o mixta) o pantalla
 bindSeg('seg-where', (v) => { settings.where = v; settings.whereChosen = true; saveSettings(); });
 $('opt-timer').checked = settings.showTimer;
+$('opt-music').checked = settings.music;
+$('opt-music').addEventListener('change', (e) => { sfx.init(); settings.music = e.target.checked; saveSettings(); sfx.setMusicOn(settings.music); syncHud(); });
+// Música: el tema del rompecabezas elegido. En el menú suena a media intensidad, como anticipo;
+// el navegador solo deja empezar el audio tras un primer toque.
+sfx.setMusicOn(settings.music);
+sfx.setTheme(themeFor(FARO));
+sfx.setMusicActive(true);
+sfx.setProgress(0.5);
+document.addEventListener('pointerdown', () => sfx.init(), { once: true, capture: true });
 $('opt-daynight').checked = settings.dayNight;
 $('opt-daynight').addEventListener('change', (e) => { settings.dayNight = e.target.checked; saveSettings(); });
 $('opt-fps').checked = settings.showFps;
@@ -1068,11 +1200,14 @@ function applyViewOffset() {
   else camera.clearViewOffset();
 }
 // Iconos de la barra superior de la página y su estado.
-const HUD_ICONS = { 'btn-ref': 'picture', 'btn-shuffle': 'shuffle', 'btn-sound': 'sound', 'btn-vr': 'vr', 'btn-ar': 'room', 'btn-menu': 'menu' };
+const HUD_ICONS = { 'btn-ref': 'picture', 'btn-shuffle': 'shuffle', 'btn-shrink': 'zoomout', 'btn-size1': 'size1', 'btn-grow': 'zoomin', 'btn-sound': 'sound', 'btn-music': 'music', 'btn-vr': 'vr', 'btn-ar': 'room', 'btn-menu': 'menu' };
 function syncHud() {
-  for (const id in HUD_ICONS) $(id).innerHTML = svgIcon(id === 'btn-sound' && sfx.muted ? 'mute' : HUD_ICONS[id]);
+  for (const id in HUD_ICONS) $(id).innerHTML = svgIcon(id === 'btn-sound' && sfx.muted ? 'mute' : id === 'btn-music' && !settings.music ? 'musicoff' : HUD_ICONS[id]);
   $('btn-ref').classList.toggle('off', !showRef);
   $('btn-sound').classList.toggle('off', sfx.muted);
+  $('btn-music').classList.toggle('off', !settings.music);
+  for (const id of ['btn-ref', 'btn-shuffle']) $(id).classList.toggle('hidden', state.complete);
+  for (const id of ['btn-shrink', 'btn-size1', 'btn-grow']) $(id).classList.toggle('hidden', !state.complete);
   bar.refresh();
 }
 function showMenu() {
@@ -1084,6 +1219,7 @@ function showMenu() {
   $('done').classList.add('hidden');
   $('hint').classList.add('hidden');
   if (!state.inGame) Object.assign(orbit, ORBIT_MENU);
+  sfx.setProgress(state.complete ? 1 : 0.5);
   refreshContinue();
   applyViewOffset();
 }
@@ -1093,6 +1229,7 @@ function play() {
   applyViewOffset();
   state.playing = true;
   sfx.init();
+  sfx.setProgress(state.complete ? 1 : progress());
   if (state.complete) $('done').classList.remove('hidden');
 }
 async function newGame() {
@@ -1135,6 +1272,10 @@ $('btn-admire').addEventListener('click', () => $('done').classList.add('hidden'
 $('btn-ref').addEventListener('click', toggleRef);
 $('btn-shuffle').addEventListener('click', () => { layout(false, false); scheduleSave(); });
 $('btn-sound').addEventListener('click', toggleSound);
+$('btn-music').addEventListener('click', toggleMusic);
+$('btn-grow').addEventListener('click', () => zoomModel(1.6));
+$('btn-shrink').addEventListener('click', () => zoomModel(1 / 1.6));
+$('btn-size1').addEventListener('click', resetModelSize);
 $('btn-vr').addEventListener('click', () => enterXR(false));
 $('btn-ar').addEventListener('click', () => enterXR(true));
 $('start-label').insertAdjacentHTML('beforebegin', svgIcon('play', 18));
@@ -1184,7 +1325,7 @@ function tick(time) {
   lifeT += dt;
   if (lifeShow && showcase.visible) lifeShow.update(dt, lifeT, skyNow.night);
   if (lifeGame) lifeGame.update(dt, lifeT, skyNow.night);
-  if (vr) { updateHands(dt); updateBar(dt); } else updateCamera();
+  if (vr) { updateHands(dt); updateBar(dt); } else updateCamera(dt);
   if (drag && drag.group) drag.cand = findSnap(drag.group, true);
 
   // piezas deslizándose a su lugar
@@ -1211,15 +1352,19 @@ function tick(time) {
   }
 
   // final: el diorama armado vuelve al centro y gira
+  updateZoom(dt);
   const f = state.finale;
   if (f) {
     f.t += dt;
     const k = Math.min(1, f.t / 1.6), s = k * k * (3 - 2 * k);
-    if (f.t > 1.6) f.angle += dt * 0.35;
+    if (f.t > 1.6) f.angle += dt * 0.35 / Math.sqrt(Math.max(1, f.scale)); // grande, gira más despacio
     q1.setFromAxisAngle(t2.set(0, 1, 0), f.angle);
-    f.g.quaternion.copy(f.fromQ).slerp(q1, s);
-    setPivot(f.g, t1.copy(f.fromP).lerp(C, s));
+    displayPos(f.scale, q1, t1);
+    const sc = f.fromScale + (f.scale - f.fromScale) * s;
+    if (k < 1) { f.g.quaternion.copy(f.fromQ).slerp(q1, s); f.g.position.copy(f.fromPos).lerp(t1, s); f.g.scale.setScalar(sc); }
+    else { f.g.quaternion.copy(q1); f.g.position.copy(t1); f.g.scale.setScalar(f.scale); f.fromScale = f.scale; }
   }
+  if (standMesh) standMesh.visible = !(state.complete && state.groups.size && [...state.groups][0].scale.x > 1.15);
   updateConfetti(dt);
 
   if (showcase.visible) showcase.rotation.y += dt * (state.inGame ? 0.25 : 0.2);
@@ -1233,7 +1378,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, orbit, bar, env, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, zoomModel, resetModelSize, get sfx() { return sfx; }, get twoHand() { return twoHand; }, completedGroup, orbit, bar, env, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {

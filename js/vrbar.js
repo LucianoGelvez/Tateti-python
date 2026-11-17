@@ -3,7 +3,7 @@
 import * as THREE from './vendor/three.module.js';
 import { drawIcon } from './icons.js';
 
-const SIZE = 0.066, GAP = 0.02, PAD = 0.022;
+const SIZE = 0.06, GAP = 0.016, PAD = 0.02;
 const PAPER = '#faf7f0', INK = '#1d2733', ACCENT = '#d2553f';
 
 function canvasPlane(w, h, pxW, pxH) {

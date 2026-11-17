@@ -37,7 +37,8 @@ capturas, y subido a la rama de trabajo.
    o `js/dioramas/globo.js` (formas con patrón de color calculado).
 3. **Escribir `js/dioramas/<id>.js`** exportando `build<Nombre>(seed)`. El `id` va en minúsculas,
    sin espacios ni acentos.
-4. **Registrarlo** en `js/dioramas/index.js` (import + una línea en `DIORAMAS`).
+4. **Registrarlo** en `js/dioramas/index.js` (import + una línea en `DIORAMAS`), con el tema de
+   música que le corresponda (`music`, ver `references/api.md`).
 5. **Previsualizar y validar:**
    ```bash
    node .claude/skills/crear-diorama/scripts/preview.cjs <id>

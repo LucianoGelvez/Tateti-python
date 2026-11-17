@@ -32,6 +32,13 @@ import { buildMolino } from './molino.js';
 
 Elegir una semilla (`seed`) distinta de las ya usadas para que el ruido no repita formas.
 
+**Música.** Cada entrada puede llevar `music: '<tema>'` con uno de los temas de `js/music.js`:
+`faro` (solo olas), `castillo` (vals misterioso), `roma` (marcha antigua), `paris` (vals musette
+de acordeón) o `globo` (aire libre, flauta). Sin ese campo se elige por el nombre o el `id`
+(eiffel/parís → `paris`, coliseo/roma → `roma`, castillo/hogwarts → `castillo`) y, si nada
+coincide, `globo`. Si ningún tema le queda bien al lugar, se puede componer uno nuevo en
+`js/music.js` siguiendo el formato de los existentes (melodías originales, nunca copiadas).
+
 ## 2. Herramientas de construcción
 
 `makeBuilder(seed)` devuelve:

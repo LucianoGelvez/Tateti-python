@@ -24,6 +24,7 @@ python3 servidor.py
 | **Táctil** | Un dedo mueve piezas o la cámara · pellizco = zoom |
 | **VR con mandos** | Gatillo o agarre toma la pieza (al alcance de la mano o apuntando con el rayo; viaja sola hasta la mano) · la palanca la aleja o acerca |
 | **Realidad mixta** | Las piezas flotan en tu habitación real (Quest 3). Se elige en el menú ("Dónde jugar") o se alterna dentro del visor, sin salir |
+| **Modelo terminado** | Se puede agrandar o achicar: botones de lupa (barra del visor o de la página), agarrándolo con las dos manos y separándolas, o con la palanca del mando hacia los lados mientras se lo sostiene. El botón del medio lo devuelve a su tamaño y lugar |
 | **Barra de iconos** | Flota sobre la zona de armado dentro del visor: salir, realidad mixta, miniatura de referencia, reordenar piezas, sonido, día y noche, nueva partida. Se apunta con el rayo y se pulsa con gatillo o pinza |
 | **VR con las manos** | Sin mandos: pinza (pulgar + índice) sobre la pieza, o apuntarla con el rayo y hacer pinza |
 
@@ -70,7 +71,7 @@ Para probar en local: `adb reverse tcp:8000 tcp:8000` y abrir `http://localhost:
 
 ## Cómo funciona
 
-- `js/dioramas/` — un archivo por diorama hecho por código (El Faro, El Mundo en Globo), más `builder.js` (herramientas comunes) e `index.js` (la lista del menú).
+- `js/dioramas/` — un archivo por diorama hecho por código (El Faro, El Mundo en Globo, El Castillo, El Coliseo), más `builder.js` (herramientas comunes) e `index.js` (la lista del menú).
 - `js/environment.js` — el entorno virtual (pradera, plataforma, árboles, montañas, nubes, astros).
 - `js/vrbar.js` — la barra de iconos flotante dentro del visor. `js/icons.js` — los iconos.
 - `js/loader.js` — carga modelos glTF/GLB (texturas, Draco, Meshopt) y los lleva al mismo formato.
@@ -78,7 +79,8 @@ Para probar en local: `adb reverse tcp:8000 tcp:8000` y abrir `http://localhost:
   las celdas de Voronoi; los cortes son planos compartidos, por eso las piezas encajan
   exactamente. También calcula qué piezas son vecinas y el punto donde se tocan.
 - `js/main.js` — escena, cámara, entrada (ratón, táctil, mandos VR), encastre, guardado.
-- `js/audio.js` — efectos y ambiente sintetizados con WebAudio.
+- `js/audio.js` — efectos sintetizados con WebAudio.
+- `js/music.js` — música de fondo generativa: un tema original por diorama, que suma instrumentos a medida que se arma.
 - `js/vendor/` — three.js y sus complementos (licencia MIT). `assets/hands/` — malla de mano de WebXR (MIT).
 
 Al soltar una pieza, dos grupos se unen si un par de piezas vecinas queda con su punto de contacto a

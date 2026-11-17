@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Diorama 3D</title>
-  <link rel="stylesheet" href="css/style.css?v=1.6">
+  <link rel="stylesheet" href="css/style.css?v=1.7">
 </head>
 <body>
   <canvas id="scene"></canvas>
@@ -17,7 +17,11 @@
     <div class="spacer"></div>
     <button class="icon" id="btn-ref" title="Miniatura de referencia" aria-label="Miniatura de referencia"></button>
     <button class="icon" id="btn-shuffle" title="Reordenar las piezas sueltas" aria-label="Reordenar las piezas sueltas"></button>
+    <button class="icon hidden" id="btn-shrink" title="Achicar el modelo" aria-label="Achicar el modelo"></button>
+    <button class="icon hidden" id="btn-size1" title="Tamaño y lugar originales" aria-label="Tamaño y lugar originales"></button>
+    <button class="icon hidden" id="btn-grow" title="Agrandar el modelo" aria-label="Agrandar el modelo"></button>
     <button class="icon" id="btn-sound" title="Sonido" aria-label="Sonido"></button>
+    <button class="icon" id="btn-music" title="Música" aria-label="Música"></button>
     <button class="icon accent hidden" id="btn-vr" title="Entrar en realidad virtual" aria-label="Entrar en realidad virtual"></button>
     <button class="icon accent hidden" id="btn-ar" title="Entrar en realidad mixta" aria-label="Entrar en realidad mixta"></button>
     <button class="icon" id="btn-menu" title="Menú" aria-label="Menú"></button>
@@ -32,7 +36,7 @@
           <h1>Diorama 3D</h1>
           <p class="sub">Rompecabezas para armar en el aire</p>
         </div>
-        <span class="chip" id="version">v1.6</span>
+        <span class="chip" id="version">v1.7</span>
       </header>
 
       <section>
@@ -77,6 +81,7 @@
 
       <details class="settings">
         <summary data-icon="sliders">Ajustes</summary>
+        <label class="check"><input type="checkbox" id="opt-music"> Música de fondo</label>
         <label class="check"><input type="checkbox" id="opt-daynight"> Ciclo de día y noche</label>
         <label class="check"><input type="checkbox" id="opt-timer"> Mostrar el tiempo</label>
         <label class="check"><input type="checkbox" id="opt-fps"> Mostrar cuadros por segundo</label>
@@ -96,6 +101,6 @@
   </div>
 
   <script type="importmap">{ "imports": { "three": "./js/vendor/three.module.js" } }</script>
-  <script type="module" src="js/main.js?v=1.6"></script>
+  <script type="module" src="js/main.js?v=1.7"></script>
 </body>
 </html>
