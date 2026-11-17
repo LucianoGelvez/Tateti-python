@@ -27,18 +27,11 @@ export function buildCristo(seed = 137) {
   // =====================================================================
   // 1. PALETA CARIOCA Y FUNCIONES DE COLOR PROCEDIMENTALES
   // =====================================================================
-  // Mosaico de esteatita (pedra-sabão) con teselas triangulares sutiles y oclusión en pliegues
+  // Piedra jabón (pedra-sabão) marfil-crema cálida y limpia con sombreado continuo de pliegues
   const pedraSabaoColor = (shade = 1) => (va, vb, vc) => {
-    const cx = (va.x + vb.x + vc.x) / 3;
-    const cy = (va.y + vb.y + vc.y) / 3;
-    const cz = (va.z + vb.z + vc.z) / 3;
-    const qx = Math.floor((cx + 1) * 430);
-    const qy = Math.floor((cy + 1) * 430);
-    const qz = Math.floor((cz + 1) * 430);
-    const h = ((qx * 73856093) ^ (qy * 19349663) ^ (qz * 83492791)) & 3;
-    const pal = [0xf2efe7, 0xe7e2d7, 0xf7f4ec, 0xd8d2c5];
-    tmpColor.setHex(pal[h]);
-    const k = shade * (1 + (rng() - 0.5) * 0.042);
+    void va; void vb; void vc;
+    tmpColor.setHex(0xe8e0cc);
+    const k = shade * (1 + (rng() - 0.5) * 0.016);
     return [tmpColor.r * k, tmpColor.g * k, tmpColor.b * k];
   };
 
@@ -496,143 +489,201 @@ export function buildCristo(seed = 137) {
   }
 
   // =====================================================================
-  // 5. LA ESTATUA DEL CRISTO REDENTOR (~182.000 TRIÁNGULOS DE DETALLE)
-  // Proporciones fieles a Paul Landowski: ~0.264 altura x ~0.262 envergadura
+  // 5. LA ESTATUA DEL CRISTO REDENTOR (~200.000 TRIÁNGULOS DE DETALLE FIEL)
+  // Fiel a la escultura Art Déco de Paul Landowski y Gheorghe Leonida:
+  //   - Túnica inferior estriada con 24 acanaladuras verticales rectas
+  //   - Manto en capas superpuestas con escalón real y borde diagonal nítido
+  //   - Pecho liso con costura central y Sagrado Corazón en bajorrelieve
+  //   - Brazos horizontales, mangas con corte oblicuo y bocamanga hueca oscura
+  //   - Manos rectas con 4 dedos paralelos juntos y pulgar suave
+  //   - Cuello liso, cráneo ovalado limpio, rostro Leonida y pelo lateral/trasero
   // =====================================================================
   const Y_STATUE_BASE = 0.213; // empotrado 1 mm dentro de Y_PED_TOP = 0.214
 
   // --- 5.1: Plinto Escultórico de Esteatita y Sandalias con 5 Dedos ---
   {
-    addGeo(new THREE.CylinderGeometry(0.025, 0.0265, 0.008, 24, 3), 0xedeae2, {
+    addGeo(new THREE.CylinderGeometry(0.025, 0.0265, 0.008, 24, 3), 0xe8e0cc, {
       p: [SX, Y_STATUE_BASE + 0.0035, SZ], colorFn: soapColorFn,
     });
-    addGeo(new THREE.CylinderGeometry(0.023, 0.025, 0.0045, 24, 2), 0xe4e0d6, {
+    addGeo(new THREE.CylinderGeometry(0.023, 0.025, 0.0045, 24, 2), 0xe3dac5, {
       p: [SX, Y_STATUE_BASE + 0.0085, SZ], colorFn: soapColorFn,
     });
 
     for (const side of [-1, 1]) {
-      const fx = SX + side * 0.0102;
-      const fz = SZ + 0.0195;
+      const fx = SX + side * 0.0098;
+      const fz = SZ + 0.0185;
       const fy = Y_STATUE_BASE + 0.0095;
-      addGeo(new THREE.BoxGeometry(0.0084, 0.0022, 0.012, 2, 1, 3), 0xd8d3c8, {
-        p: [fx, fy + 0.0008, fz], r: [0, side * 0.08, 0], colorFn: soapColorFn,
+      addGeo(new THREE.BoxGeometry(0.0082, 0.0022, 0.0115, 2, 1, 3), 0xd8cfba, {
+        p: [fx, fy + 0.0008, fz], r: [0, side * 0.06, 0], colorFn: pedraSabaoColor(0.95),
       });
-      addGeo(new THREE.SphereGeometry(0.0042, 12, 8), 0xedeae2, {
+      addGeo(new THREE.SphereGeometry(0.0040, 12, 8), 0xe8e0cc, {
         p: [fx, fy + 0.0028, fz - 0.001], s: [0.95, 0.72, 1.35], colorFn: soapColorFn,
       });
-      addRod([fx - 0.0030, fy + 0.0035, fz - 0.002], [fx, fy + 0.0044, fz + 0.0038], 0.00075, 0xd8d3c8, 6);
-      addRod([fx + 0.0030, fy + 0.0035, fz - 0.002], [fx, fy + 0.0044, fz + 0.0038], 0.00075, 0xd8d3c8, 6);
+      addRod([fx - 0.0028, fy + 0.0035, fz - 0.002], [fx, fy + 0.0044, fz + 0.0036], 0.00072, 0xd8cfba, 6);
+      addRod([fx + 0.0028, fy + 0.0035, fz - 0.002], [fx, fy + 0.0044, fz + 0.0036], 0.00072, 0xd8cfba, 6);
       for (let toe = 0; toe < 5; toe++) {
-        const tx = fx + side * ((2 - toe) * 0.00155);
-        const tz = fz + 0.0052 - toe * 0.00038;
-        const tr = 0.00090 - toe * 0.00009;
-        addGeo(new THREE.SphereGeometry(tr, 8, 6), 0xf2efe7, {
+        const tx = fx + side * ((2 - toe) * 0.00148);
+        const tz = fz + 0.0050 - toe * 0.00036;
+        const tr = 0.00085 - toe * 0.00008;
+        addGeo(new THREE.SphereGeometry(tr, 8, 6), 0xe8e0cc, {
           p: [tx, fy + 0.0022, tz], s: [0.85, 0.75, 1.3], colorFn: soapColorFn,
         });
       }
     }
   }
 
-  // --- 5.2: Túnica Columnar, Torso Anatómico, Manto Drapeado y Cuello en V (~92.160 tris) ---
+  // --- 5.2: Túnica Estriada, Torso Liso y Manto en Capas Superpuestas (~104.000 tris) ---
   const Y_TUNIC_BOT = Y_STATUE_BASE + 0.008; // 0.221
-  const Y_TUNIC_TOP = 0.431;                 // línea de hombros y escote en V
+  const Y_TUNIC_TOP = 0.427;                 // base plana del cuello en los hombros
   {
-    const NU = 240; // anillos verticales
-    const NS = 192; // segmentos angulares -> 240 * 192 * 2 = 92.160 triángulos + tapas
+    const NU = 260; // anillos verticales
+    const NS = 200; // segmentos angulares -> 260 * 200 * 2 = 104.000 triángulos + tapas
     const rings = [];
     const centers = [];
     const ringShade = [];
+    let heartSurfaceZ = SZ + 0.019;
 
     for (let k = 0; k <= NU; k++) {
       const u = k / NU;
       const y = Y_TUNIC_BOT + (Y_TUNIC_TOP - Y_TUNIC_BOT) * u;
-      const zShift = SZ + 0.0020 * smooth((u - 0.45) / 0.55);
+      const zShift = SZ + 0.0008 * smooth((u - 0.5) / 0.5);
 
-      // Perfil base monumental (más cuerpo y anchura de hombros que antes: estilo Landowski)
-      let rx = 0.0238 - 0.0022 * u;
-      let rz = 0.0192 - 0.0024 * u;
+      let rx = 0.0218 + 0.0024 * smooth((u - 0.15) / 0.62);
+      let rz = 0.0174 + 0.0012 * smooth((u - 0.15) / 0.62);
 
-      if (u < 0.08) {
-        const flare = smooth(1 - u / 0.08);
-        rx += 0.0026 * flare;
-        rz += 0.0028 * flare;
+      if (u < 0.06) {
+        const flare = smooth(1 - u / 0.06);
+        rx += 0.0018 * flare;
+        rz += 0.0018 * flare;
       }
-      // Ligero entalle columnar en cintura y fuerte expansión torácica hacia hombros (rx ~ 0.0365)
-      const waist = Math.exp(-Math.pow((u - 0.46) / 0.22, 2));
-      rx -= 0.0018 * waist;
-      rz -= 0.0012 * waist;
 
-      const chestExpand = smooth((u - 0.54) / 0.36) * (1 - 0.24 * smooth((u - 0.93) / 0.07));
-      rx += 0.0155 * chestExpand;
-      rz += 0.0034 * chestExpand;
+      // Expansión gradual de hombros anchos hasta u = 0.93 para alojar por completo el nacimiento de los brazos
+      const shoulderExpand = smooth((u - 0.70) / 0.21) * (1 - smooth((u - 0.935) / 0.065));
+      rx += 0.0082 * shoulderExpand;
+      rz += 0.0006 * shoulderExpand;
 
-      if (u > 0.93) {
-        const neckTaper = smooth((u - 0.93) / 0.07);
-        rx *= (1 - 0.66 * neckTaper);
-        rz *= (1 - 0.52 * neckTaper);
+      if (u > 0.925) {
+        const neckT = smooth((u - 0.925) / 0.075);
+        rx = rx * (1 - neckT) + 0.0074 * neckT;
+        rz = rz * (1 - neckT) + 0.0076 * neckT;
       }
 
       const ring = [];
       const shades = [];
       for (let s = 0; s < NS; s++) {
         const th = (s / NS) * Math.PI * 2;
-        const ct = Math.cos(th); // +1 en +X (izquierda estatua), -1 en -X (derecha estatua)
-        const st = Math.sin(th); // +1 en +Z (frente), -1 en -Z (espalda)
+        const ct = Math.cos(th); // -1 = izquierda foto (-X), +1 = derecha foto (+X)
+        const st = Math.sin(th); // +1 = frente (+Z), -1 = espalda (-Z)
 
         let rLocal = (rx * rz) / Math.hypot(rz * ct, rx * st);
+        let shade = 1.0;
 
-        // 1) Escote en V doble esculpido del cuello (u > 0.83, st > 0)
-        if (u > 0.82 && st > 0) {
-          const vEdge = Math.abs(ct) / (0.34 * smooth((u - 0.82) / 0.16) + 0.04);
-          const vInner = Math.max(0, 1 - vEdge) * st;
-          const vCollar = Math.exp(-Math.pow((vEdge - 1.0) / 0.22, 2)) * st * smooth((u - 0.83) / 0.08);
-          rLocal -= 0.0022 * vInner;
-          rLocal += 0.0012 * vCollar;
+        // 1) Columna inferior de túnica con 24 acanaladuras verticales rectas (solo en la parte baja u < 0.62)
+        const fluteFadeTop = 1 - smooth((u - 0.44) / 0.18);
+        const fluteSin = Math.sin(th * 12);
+        const fluteDepth = -0.00145 * Math.pow(Math.abs(fluteSin), 0.75) * fluteFadeTop;
+        const fluteShade = 0.88 + 0.13 * (1 - Math.abs(fluteSin));
+
+        // 2) Bordes y capas del Manto Escultórico
+        let mantleRelief = 0;
+        let mantleMask = 0;
+        let stepShadow = 0;
+
+        if (st >= -0.20) {
+          const frontWeight = smooth((st + 0.20) / 0.45);
+
+          // Borde diagonal principal del paño frontal del manto (izquierda alta u=0.39 -> derecha baja u=0.14)
+          const uDiagHem = 0.280 - 0.135 * Math.max(-0.55, Math.min(0.75, ct));
+          const inCentralAndRight = smooth((ct + 0.58) / 0.16);
+          const mainMantle = smooth((u - uDiagHem) / 0.018) * inCentralAndRight * (1 - smooth((u - 0.78) / 0.05));
+
+          const distDiag = u - uDiagHem;
+          if (distDiag > -0.022 && distDiag < 0.006) {
+            stepShadow = Math.max(stepShadow, inCentralAndRight * Math.exp(-Math.pow((distDiag + 0.008) / 0.009, 2)) * 0.22);
+          }
+
+          // Faldón izquierdo vertical (ct entre -0.92 y -0.45) con doblez limpio y transición suave
+          const flapSideMask = smooth((ct + 0.96) / 0.12) * smooth((-0.38 - ct) / 0.16);
+          const uFlapHem = 0.445 + 0.022 * Math.sin((ct + 0.68) * 6.5);
+          const leftFlap = smooth((u - uFlapHem) / 0.022) * flapSideMask * (1 - smooth((u - 0.80) / 0.10));
+          const distFlap = u - uFlapHem;
+          if (distFlap > -0.022 && distFlap < 0.006) {
+            stepShadow = Math.max(stepShadow, flapSideMask * Math.exp(-Math.pow((distFlap + 0.008) / 0.009, 2)) * 0.22);
+          }
+
+          // Paño vertical exterior derecho (ct > 0.42) con segundo escalón en u ~ 0.255
+          const rightPanelMask = smooth((ct - 0.36) / 0.16) * smooth((0.96 - ct) / 0.14);
+          const rightPanel = smooth((u - 0.255) / 0.018) * rightPanelMask * (1 - smooth((u - 0.82) / 0.10));
+
+          // Banda transversal en U que cruza bajo el pecho desde brazo derecho (ct=-0.8) hasta costado izquierdo (ct=+0.45)
+          const uChestBand = 0.755 - 0.028 * Math.cos(ct * 2.1);
+          const bandMask = smooth((0.55 - ct) / 0.18) * smooth((ct + 0.95) / 0.12);
+          const chestBand = Math.exp(-Math.pow((u - uChestBand) / 0.042, 2)) * bandMask;
+          const chestBandShadow = Math.exp(-Math.pow((u - (uChestBand - 0.046)) / 0.016, 2)) * bandMask * 0.17;
+          stepShadow = Math.max(stepShadow, chestBandShadow);
+
+          // 3 grandes pliegues catenarios diagonales en el paño central (bajan de izq a der)
+          const centralArea = smooth((ct + 0.45) / 0.15) * smooth((0.44 - ct) / 0.12) * smooth((u - uDiagHem) / 0.03) * smooth((0.72 - u) / 0.05);
+          const foldCoord = (u - 0.56 + 0.28 * ct) * 18.0;
+          const catenaryFolds = centralArea * (
+            Math.exp(-Math.pow(foldCoord - 0.0, 2) * 3.8)
+            + 0.85 * Math.exp(-Math.pow(foldCoord + 2.2, 2) * 3.8)
+            + 0.70 * Math.exp(-Math.pow(foldCoord - 2.2, 2) * 3.8)
+          );
+
+          // 3 pliegues finos diagonales bajo la banda del pecho (zona derecha ct in [0.02, 0.45], u in [0.64, 0.74])
+          const subChestArea = smooth((ct - 0.0) / 0.10) * smooth((0.46 - ct) / 0.10) * smooth((u - 0.61) / 0.03) * smooth((0.74 - u) / 0.02);
+          const subFolds = subChestArea * (0.5 + 0.5 * Math.cos((u + 0.18 * ct) * 145));
+
+          // Pecho superior y trapecio completamente lisos
+          const upperChest = smooth((u - 0.78) / 0.06) * (1 - smooth((u - 0.92) / 0.08));
+          const seamLine = upperChest * smooth((0.26 - Math.abs(ct)) / 0.10) * Math.exp(-Math.pow(ct / 0.035, 2)) * 0.00025;
+
+          const vertCreaseL = flapSideMask * smooth((u - uFlapHem) / 0.03) * (1 - smooth((u - 0.80) / 0.08)) * Math.exp(-Math.pow((ct + 0.58) / 0.06, 2)) * 0.0017;
+          const vertCreaseR = rightPanelMask * smooth((u - 0.255) / 0.03) * (1 - smooth((u - 0.80) / 0.08)) * Math.exp(-Math.pow((ct - 0.54) / 0.06, 2)) * 0.0018;
+
+          mantleMask = Math.max(mainMantle, leftFlap, rightPanel, upperChest) * frontWeight;
+          mantleRelief = frontWeight * (
+            0.0028 * mainMantle
+            + 0.0036 * leftFlap
+            + 0.0032 * rightPanel
+            + 0.0024 * chestBand
+            + 0.0016 * catenaryFolds
+            + 0.0008 * subFolds
+            + seamLine
+            + vertCreaseL
+            + vertCreaseR
+          );
+
+          const foldShade = 1.0 - 0.08 * centralArea * (1 - Math.min(1, catenaryFolds / Math.max(0.01, centralArea)))
+            - 0.06 * subChestArea * (1 - subFolds / Math.max(0.01, subChestArea));
+          shade *= foldShade;
         }
 
-        // 2) Acanaladuras verticales Art Déco biseladas (14 pliegues principales + microestrías)
-        const foldPhase = th * 14 + 0.14 * Math.sin(u * 4.2 + th * 2);
-        const foldAmp = (0.00145 * (1 - 0.42 * u) + 0.0005 * chestExpand) * (0.75 + 0.25 * Math.abs(st));
-        const foldWave = Math.cos(foldPhase);
-        const sharpFold = Math.sign(foldWave) * Math.pow(Math.abs(foldWave), 0.72);
-        rLocal += foldAmp * sharpFold;
-
-        // 3) Paños laterales en cascada bajo los brazos (u = 0.22..0.90, |ct| > 0.62)
-        const underArmMask = smooth((u - 0.16) / 0.24) * (1 - smooth((u - 0.88) / 0.12));
-        const sideMask = Math.pow(Math.abs(ct), 2.8);
-        const cascadePleats = Math.cos(th * 26);
-        rLocal += (0.0046 + 0.0016 * (0.5 + 0.5 * cascadePleats)) * underArmMask * sideMask;
-
-        // 4) El Manto Escultórico Diagonal (sobre hombro izquierdo +X cruzando pecho y espalda hacia costado derecho)
-        const uMantleCenter = st >= 0
-          ? (0.68 + 0.20 * ct - 0.05 * (1 - ct * ct))
-          : (0.63 + 0.24 * ct - 0.06 * (1 - ct * ct));
-        const dMantle = u - uMantleCenter;
-        const mantleBand = Math.exp(-Math.pow(dMantle / 0.15, 2));
-        const mantleRim = Math.exp(-Math.pow((dMantle + 0.10) / 0.028, 2));
-        const diagFolds = Math.cos((u - 0.24 * ct) * 74);
-        const cloakRelief = 0.0028 * mantleBand + 0.0018 * mantleRim + 0.00095 * mantleBand * diagFolds;
-        const shoulderDrape = smooth((u - 0.72) / 0.20) * smooth((ct + 0.25) / 0.65) * 0.0020;
-        const backDrape = smooth((-st - 0.1) / 0.7) * smooth((u - 0.20) / 0.58) * (0.0020 + 0.00085 * Math.cos(th * 18));
-        rLocal += cloakRelief + shoulderDrape + backDrape;
-
-        // 5) Relieve pectoral anatómico sutil
-        if (st > 0.35 && u > 0.68 && u < 0.90) {
-          const pec = Math.sin(((u - 0.68) / 0.22) * Math.PI) * smooth((st - 0.35) / 0.55);
-          rLocal += 0.0020 * pec;
+        // Espalda (st < 0.05)
+        if (st < 0.05) {
+          const backWeight = smooth((0.05 - st) / 0.35);
+          const uBackHem = 0.36 - 0.12 * ct;
+          const backMantle = smooth((u - uBackHem) / 0.025) * (1 - smooth((u - 0.92) / 0.06));
+          const backFolds = backMantle * (0.5 + 0.5 * Math.cos((u - 0.16 * ct) * 44)) * 0.0010;
+          const backShadow = Math.exp(-Math.pow((u - (uBackHem - 0.014)) / 0.012, 2)) * 0.15;
+          mantleMask = Math.max(mantleMask, backMantle * backWeight);
+          mantleRelief += backWeight * (0.0026 * backMantle + backFolds);
+          stepShadow = Math.max(stepShadow, backShadow * backWeight);
         }
 
-        // 6) Orla inferior del dobladillo
-        if (u < 0.028) {
-          rLocal += 0.0011 * Math.sin((u / 0.028) * Math.PI);
+        const fluteVis = fluteDepth * (1 - mantleMask);
+        rLocal += fluteVis + mantleRelief;
+        const baseShade = fluteShade * (1 - Math.max(mantleMask, 1 - fluteFadeTop)) + 1.0 * Math.max(mantleMask, 1 - fluteFadeTop);
+        shade *= baseShade * (1 - stepShadow);
+
+        const vx = SX + rLocal * ct;
+        const vz = zShift + rLocal * st;
+        if (s === NS / 4 && Math.abs(y - 0.402) < 0.0012) {
+          heartSurfaceZ = vz;
         }
-
-        // Oclusión ambiental en el fondo de las acanaladuras y bajo el borde del manto
-        const valleyShadow = Math.exp(-Math.pow((dMantle + 0.125) / 0.018, 2)) * 0.065;
-        const grooveShade = 0.935 + 0.075 * (sharpFold * 0.5 + 0.5) + 0.025 * mantleRim - valleyShadow;
-
-        ring.push(new THREE.Vector3(SX + rLocal * ct, y, zShift + rLocal * st));
-        shades.push(grooveShade);
+        ring.push(new THREE.Vector3(vx, y, vz));
+        shades.push(shade);
       }
       rings.push(ring);
       centers.push(new THREE.Vector3(SX, y, zShift));
@@ -643,60 +694,45 @@ export function buildCristo(seed = 137) {
       return pedraSabaoColor(ringShade[k][s])(va, vb, vc);
     }, { capStart: true, capEnd: true, startWant: DOWN, endWant: UP });
 
-    // Sagrado Corazón de Jesús en altorrelieve nítido en el pecho (+Z)
-    const hx = SX, hy = 0.386, hz = SZ + 0.0235;
-    // Surco ovalado de sombra en torno al corazón
-    addGeo(new THREE.TorusGeometry(0.0084, 0.0012, 8, 24), 0xcbc5b7, {
-      p: [hx, hy, hz - 0.0008], s: [0.95, 1.15, 0.6], colorFn: pedraSabaoColor(0.88),
+    // Sagrado Corazón de Jesús en bajorrelieve discreto y plano sobre el pecho (igual a la foto real)
+    const hx = SX, hy = 0.402, hz = heartSurfaceZ + 0.0002;
+    addGeo(new THREE.SphereGeometry(0.0034, 18, 14), 0xe8e0cc, {
+      p: [hx, hy, hz], s: [0.90, 1.12, 0.22], colorFn: pedraSabaoColor(1.03),
     });
-    addGeo(new THREE.SphereGeometry(0.0080, 26, 22), 0xf4f1e9, {
-      p: [hx, hy, hz], s: [0.92, 1.16, 0.56], colorFn: pedraSabaoColor(1.04),
+    addGeo(new THREE.ConeGeometry(0.0028, 0.0044, 14, 2), 0xe8e0cc, {
+      p: [hx, hy - 0.0024, hz - 0.0001], r: [Math.PI, 0, 0], s: [0.90, 1, 0.22], colorFn: pedraSabaoColor(1.01),
     });
-    addGeo(new THREE.ConeGeometry(0.0066, 0.0108, 18, 4), 0xedeae2, {
-      p: [hx, hy - 0.0060, hz - 0.0002], r: [Math.PI, 0, 0], s: [0.92, 1, 0.54], colorFn: pedraSabaoColor(1.02),
+    addGeo(new THREE.BoxGeometry(0.0007, 0.0032, 0.0006), 0xe8e0cc, {
+      p: [hx, hy + 0.0052, hz + 0.0001], colorFn: pedraSabaoColor(1.04),
     });
-    // Corona horizontal de espinas trenzada
-    addGeo(new THREE.TorusGeometry(0.0064, 0.0013, 8, 24), 0xcac3b4, {
-      p: [hx, hy + 0.0018, hz + 0.0007], r: [Math.PI / 2 - 0.12, 0, 0], s: [1.06, 1, 0.72], colorFn: pedraSabaoColor(0.90),
+    addGeo(new THREE.BoxGeometry(0.0022, 0.0007, 0.0006), 0xe8e0cc, {
+      p: [hx, hy + 0.0058, hz + 0.0001], colorFn: pedraSabaoColor(1.04),
     });
-    // Flama esculpida y cruz Art Déco superior
-    addGeo(new THREE.ConeGeometry(0.0026, 0.0060, 10), 0xf7f4ec, {
-      p: [hx, hy + 0.0100, hz + 0.0005], colorFn: pedraSabaoColor(1.05),
-    });
-    addGeo(new THREE.BoxGeometry(0.0016, 0.0076, 0.0018), 0xf7f4ec, {
-      p: [hx, hy + 0.0148, hz + 0.0005], colorFn: pedraSabaoColor(1.05),
-    });
-    addGeo(new THREE.BoxGeometry(0.0052, 0.0015, 0.0018), 0xf7f4ec, {
-      p: [hx, hy + 0.0162, hz + 0.0005], colorFn: pedraSabaoColor(1.05),
-    });
-    features.push({ type: 'sparkle', pos: [hx, hy + 0.004, hz + 0.0048], size: 0.010 });
   }
 
-  // --- 5.3: Brazos Extendidos y Mangas Trapezoidales Art Déco (~42.240 tris) ---
-  // Envergadura total con manos: hasta ±0.132 (~0.264 de ancho, igual que la altura ~0.264!)
-  const Y_ARM_AXIS = 0.415;
-  const Z_ARM_AXIS = SZ + 0.0015;
-  const X_WRIST = 0.109;
+  // --- 5.3: Brazos Horizontales, Mangas Lisas con Corte Oblicuo y Bocamanga Hueca (~43.000 tris) ---
+  const Y_ARM_TOP = 0.422;
+  const Z_ARM_AXIS = SZ + 0.0010;
+  const X_CUFF_TOP = 0.114;
+  const X_CUFF_BOT = 0.097;
   for (const side of [-1, 1]) {
     const NX = 110; // 2 * 110 * 96 * 2 = 42.240 triángulos
     const NS = 96;
     const rings = [];
     const centers = [];
     const ringShade = [];
-    const xStart = side * 0.025;
-    const xEnd = side * X_WRIST;
+    const xStart = side * 0.011;
 
     for (let k = 0; k <= NX; k++) {
       const t = k / NX;
-      const x = xStart + (xEnd - xStart) * t;
-      const yTop = Y_ARM_AXIS + 0.0092 * (1 - 0.40 * smooth(t)) + 0.0010 * Math.sin(t * Math.PI);
-      // Corte trapezoidal recto característico de Landowski en la parte inferior de la manga
-      const drapeProfile = Math.pow(1 - t, 0.65) * (1 + 0.14 * Math.sin(t * Math.PI * 1.15));
-      const yBot = Y_ARM_AXIS - 0.011 - 0.048 * drapeProfile;
-      const cuffTuck = t > 0.94 ? smooth((t - 0.94) / 0.06) * 0.0045 : 0;
-      const yCenter = 0.5 * (yTop + (yBot + cuffTuck));
-      const halfH = Math.max(0.0072, 0.5 * (yTop - (yBot + cuffTuck)));
-      const halfZ = 0.0138 * (1 - 0.46 * t) + 0.0024 * Math.sin(t * Math.PI);
+
+      // El nacimiento del brazo (t < 0.18) se hunde suavemente dentro del hombro del torso para cero escalón visible
+      const shoulderIn = smooth(t / 0.18);
+      const yTop = (0.414 + (Y_ARM_TOP - 0.414) * shoulderIn) - 0.0030 * t;
+      const yBot = 0.382 + 0.0035 * t - 0.0032 * Math.sin(t * Math.PI);
+      const yCenter = 0.5 * (yTop + yBot);
+      const halfH = 0.5 * (yTop - yBot);
+      const halfZ = 0.0130 * (1 - 0.38 * t);
 
       const ring = [];
       const shades = [];
@@ -705,42 +741,58 @@ export function buildCristo(seed = 137) {
         const ct = Math.cos(th); // +1 arriba (+Y), -1 abajo (-Y)
         const st = Math.sin(th); // +1 frente (+Z), -1 espalda (-Z)
 
+        // El borde exterior de la bocamanga tiene un corte diagonal hacia abajo-adentro (X_CUFF_BOT -> X_CUFF_TOP)
+        const xCuffEdge = 0.5 * (X_CUFF_TOP + X_CUFF_BOT) + 0.5 * (X_CUFF_TOP - X_CUFF_BOT) * ct;
+        const x = xStart + (side * xCuffEdge - xStart) * t;
+
         const yOff = halfH * ct;
-        const zPinch = ct >= 0 ? (0.86 + 0.14 * Math.sqrt(1 - ct * ct)) : (0.56 + 0.44 * (1 + ct));
+        const zPinch = ct >= 0 ? (0.86 + 0.14 * Math.sqrt(1 - ct * ct)) : (0.58 + 0.42 * (1 + ct));
         let zOff = halfZ * zPinch * st;
 
-        // 18 pliegues verticales acanalados cayendo desde el brazo por la manga trapezoidal
-        const nPleats = 18;
-        const pleatPhase = t * nPleats * Math.PI * 2 + 0.35 * ct;
-        const pleatMask = smooth((0.35 - ct) / 1.15) * (1 - 0.38 * smooth((t - 0.86) / 0.14));
-        const pleatWave = Math.cos(pleatPhase);
-        const sharpPleat = Math.sign(pleatWave) * Math.pow(Math.abs(pleatWave), 0.78);
-        zOff += st * 0.0028 * pleatMask * sharpPleat;
+        // 3 pliegues diagonales suaves de la tela desde el hombro/axila hacia la bocamanga (sin ondas verticales)
+        const diagPhase = t * 2.2 - ct * 0.85;
+        const creaseMask = smooth((0.45 - ct) / 1.1) * (1 - 0.3 * smooth((t - 0.85) / 0.15));
+        const fold1 = Math.exp(-Math.pow((diagPhase - 0.55) / 0.24, 2));
+        const fold2 = Math.exp(-Math.pow((diagPhase - 1.35) / 0.24, 2));
+        const fold3 = Math.exp(-Math.pow((diagPhase - 2.15) / 0.24, 2));
+        const diagCreases = creaseMask * (fold1 + 0.9 * fold2 + 0.75 * fold3);
+        zOff += st * 0.0017 * diagCreases;
 
-        // Reborde biselado de la bocamanga
-        const cuffBead = t > 0.92 ? Math.sin(((t - 0.92) / 0.08) * Math.PI) * 0.0016 : 0;
-        ring.push(new THREE.Vector3(x, yCenter + yOff + ct * cuffBead, Z_ARM_AXIS + zOff + st * cuffBead));
-        shades.push(0.93 + 0.075 * (sharpPleat * 0.5 + 0.5) * pleatMask);
+        // Sutil doblez del borde del puño en t > 0.95
+        const cuffLip = t > 0.94 ? Math.sin(((t - 0.94) / 0.06) * Math.PI) * 0.0009 : 0;
+        ring.push(new THREE.Vector3(x, yCenter + yOff + ct * cuffLip, Z_ARM_AXIS + zOff + st * cuffLip));
+        shades.push(0.95 + 0.05 * diagCreases - 0.04 * (1 - Math.abs(st)) * creaseMask);
       }
       rings.push(ring);
-      centers.push(new THREE.Vector3(x, yCenter, Z_ARM_AXIS));
+      const xCenterRing = xStart + (side * 0.5 * (X_CUFF_TOP + X_CUFF_BOT) - xStart) * t;
+      centers.push(new THREE.Vector3(xCenterRing, yCenter, Z_ARM_AXIS));
       ringShade.push(shades);
     }
 
     addLoftedMesh(rings, centers, (k, s, va, vb, vc) => {
       return pedraSabaoColor(ringShade[k][s])(va, vb, vc);
-    }, { capStart: true, capEnd: true, startWant: new THREE.Vector3(-side, 0, 0), endWant: new THREE.Vector3(side, 0, 0) });
+    }, { capStart: true, capEnd: false, startWant: new THREE.Vector3(-side, 0, 0) });
 
-    // Anillo sombreado en el interior del puño para dar profundidad a la salida de la muñeca
-    addGeo(new THREE.CylinderGeometry(0.0074, 0.0074, 0.0036, 18), 0x8f8a7f, {
-      p: [xEnd - side * 0.001, Y_ARM_AXIS - 0.0015, Z_ARM_AXIS],
-      r: [0, 0, side * -Math.PI / 2],
-      s: [1.15, 1, 0.88],
-      colorFn: pedraSabaoColor(0.76),
+    // Bocamanga hueca oscura: extruimos el anillo final hacia el interior del brazo con sombra profunda
+    const rimOuter = rings[NX];
+    const rimInner = [];
+    const innerRings = [rimOuter, rimInner];
+    const cuffCenterOut = new THREE.Vector3(side * 0.5 * (X_CUFF_TOP + X_CUFF_BOT), 0.5 * (Y_ARM_TOP - 0.0055 + 0.3855), Z_ARM_AXIS);
+    const cuffCenterIn = cuffCenterOut.clone().add(new THREE.Vector3(-side * 0.0085, 0, 0));
+    for (let s = 0; s < NS; s++) {
+      const p = rimOuter[s];
+      rimInner.push(new THREE.Vector3(
+        p.x - side * 0.0085,
+        cuffCenterIn.y + (p.y - cuffCenterOut.y) * 0.62,
+        cuffCenterIn.z + (p.z - cuffCenterOut.z) * 0.55,
+      ));
+    }
+    addLoftedMesh(innerRings, [cuffCenterOut, cuffCenterIn], () => pedraSabaoColor(0.50)(rimOuter[0], rimOuter[1], rimInner[0]), {
+      capStart: false, capEnd: true, endWant: new THREE.Vector3(side, 0, 0),
     });
   }
 
-  // --- 5.4: Manos Anatómicas Expresivas (Muñeca, Palma, Estigma y 5 Dedos con Uñas) (~10.500 tris) ---
+  // --- 5.4: Manos Rectas con 4 Dedos Juntos y Paralelos + Pulgar Suave (~11.500 tris) ---
   const addSculptedFinger = (basePos, dirVec, palmNormal, length, radiusBase, segU, segS, has3Phalanges = true) => {
     const ax = dirVec.clone().normalize();
     const pn = palmNormal.clone().normalize();
@@ -752,60 +804,61 @@ export function buildCristo(seed = 137) {
     const stepLen = length / segU;
     for (let k = 0; k <= segU; k++) {
       const t = k / segU;
-      const curl = 0.24 * t * t;
+      const curl = 0.12 * t * t;
       const dLocal = ax.clone().multiplyScalar(Math.cos(curl)).addScaledVector(pn, Math.sin(curl)).normalize();
       if (k > 0) pCurr.addScaledVector(dLocal, stepLen);
 
       const joints = has3Phalanges
-        ? 0.10 * Math.exp(-Math.pow((t - 0.36) / 0.07, 2)) + 0.09 * Math.exp(-Math.pow((t - 0.68) / 0.07, 2))
-        : 0.11 * Math.exp(-Math.pow((t - 0.48) / 0.09, 2));
-      const tipTaper = t > 0.82 ? Math.sqrt(Math.max(0.08, 1 - Math.pow((t - 0.82) / 0.18, 2))) : 1.0;
-      const r = radiusBase * (1 - 0.22 * t + joints) * tipTaper;
+        ? 0.07 * Math.exp(-Math.pow((t - 0.36) / 0.08, 2)) + 0.06 * Math.exp(-Math.pow((t - 0.68) / 0.08, 2))
+        : 0.08 * Math.exp(-Math.pow((t - 0.48) / 0.09, 2));
+      const tipTaper = t > 0.84 ? Math.sqrt(Math.max(0.10, 1 - Math.pow((t - 0.84) / 0.16, 2))) : 1.0;
+      const r = radiusBase * (1 - 0.18 * t + joints) * tipTaper;
 
       const ring = [];
       for (let s = 0; s < segS; s++) {
         const th = (s / segS) * Math.PI * 2;
         const ct = Math.cos(th);
         const st = Math.sin(th);
-        let rLat = r * 0.94;
+        let rLat = r * 0.92;
         let rPal = r * 0.86;
-        if (t > 0.77 && t < 0.96 && st < -0.25) {
-          rPal += 0.00030 * Math.sin(((t - 0.77) / 0.19) * Math.PI);
+        if (t > 0.78 && t < 0.96 && st < -0.25) {
+          rPal += 0.00024 * Math.sin(((t - 0.78) / 0.18) * Math.PI);
         }
         ring.push(pCurr.clone().addScaledVector(lat, rLat * ct).addScaledVector(pn, rPal * st));
       }
       rings.push(ring);
       centers.push(pCurr.clone());
     }
-    const endTip = pCurr.clone().addScaledVector(ax, radiusBase * 0.25);
-    addLoftedMesh(rings, centers, (k, s, va, vb, vc) => pedraSabaoColor(1.01)(va, vb, vc), {
+    const endTip = pCurr.clone().addScaledVector(ax, radiusBase * 0.22);
+    addLoftedMesh(rings, centers, () => pedraSabaoColor(1.0)(pCurr, pCurr, endTip), {
       capStart: true, capEnd: true, startWant: ax.clone().negate(), endWant: endTip.sub(pCurr).normalize(),
     });
   };
 
   for (const side of [-1, 1]) {
-    const xWrist0 = side * (X_WRIST - 0.0045);
-    const xWrist1 = side * (X_WRIST + 0.0045);
-    const yWrist = Y_ARM_AXIS - 0.0015;
+    // La muñeca emerge de la parte alta de la bocamanga oblicua
+    const xWrist0 = side * 0.103;
+    const xWrist1 = side * 0.115;
+    const yWrist = 0.415;
     const zWrist = Z_ARM_AXIS;
 
-    addGeo(new THREE.CylinderGeometry(0.0056, 0.0066, 0.011, 16, 4), 0xedeae2, {
+    addGeo(new THREE.CylinderGeometry(0.0046, 0.0054, 0.013, 16, 4), 0xe8e0cc, {
       p: [(xWrist0 + xWrist1) * 0.5, yWrist, zWrist],
       r: [0, 0, side * -Math.PI / 2],
-      s: [1, 1, 0.76],
+      s: [0.85, 1, 0.78],
       colorFn: soapColorFn,
     });
 
     const NU_P = 28, NS_P = 28;
     const pRings = [], pCenters = [];
-    const palmLen = 0.0128;
+    const palmLen = 0.0124;
     for (let k = 0; k <= NU_P; k++) {
       const t = k / NU_P;
       const px = xWrist1 + side * (palmLen * t);
-      const halfY = 0.0058 + 0.0028 * smooth(t / 0.85) - 0.0009 * smooth((t - 0.85) / 0.15);
-      const halfZ = 0.0038 * (1 - 0.20 * t);
-      const yC = yWrist + 0.0004 * t;
-      const zC = zWrist + 0.0005 * Math.sin(t * Math.PI);
+      const halfY = 0.0048 + 0.0014 * smooth(t / 0.82) - 0.0004 * smooth((t - 0.82) / 0.18);
+      const halfZ = 0.0033 * (1 - 0.22 * t);
+      const yC = yWrist + 0.0002 * t;
+      const zC = zWrist + 0.0004 * Math.sin(t * Math.PI);
 
       const ring = [];
       for (let s = 0; s < NS_P; s++) {
@@ -816,53 +869,52 @@ export function buildCristo(seed = 137) {
         let pz = zC + halfZ * st;
         if (st > 0) {
           const thenar = Math.exp(-Math.pow((t - 0.35) / 0.28, 2)) * smooth((ct - 0.05) / 0.7);
-          pz += 0.0016 * thenar * st;
+          pz += 0.0012 * thenar * st;
           const hollow = Math.exp(-Math.pow((t - 0.52) / 0.26, 2)) * Math.exp(-Math.pow(ct / 0.45, 2));
-          pz -= 0.00095 * hollow * st;
-        }
-        if (st < 0) {
-          pz -= 0.00035 * Math.cos(ct * Math.PI * 3.5) * Math.sin(t * Math.PI);
+          pz -= 0.0007 * hollow * st;
         }
         ring.push(new THREE.Vector3(px, py, pz));
       }
       pRings.push(ring);
       pCenters.push(new THREE.Vector3(px, yC, zC));
     }
-    addLoftedMesh(pRings, pCenters, (k, s, va, vb, vc) => pedraSabaoColor(1.0)(va, vb, vc), {
+    addLoftedMesh(pRings, pCenters, () => pedraSabaoColor(1.0)(pCenters[0], pCenters[1], pCenters[2]), {
       capStart: true, capEnd: true, startWant: new THREE.Vector3(-side, 0, 0), endWant: new THREE.Vector3(side, 0, 0),
     });
 
-    // Estigma esculpido en la palma
-    addGeo(new THREE.SphereGeometry(0.0013, 8, 6), 0xc2bcb0, {
-      p: [xWrist1 + side * palmLen * 0.52, yWrist, zWrist + 0.0032],
-      s: [1.1, 0.9, 0.45],
-      colorFn: pedraSabaoColor(0.86),
+    // Estigma sutil en el centro de la palma
+    addGeo(new THREE.SphereGeometry(0.0010, 8, 6), 0xd4cbb4, {
+      p: [xWrist1 + side * palmLen * 0.52, yWrist, zWrist + 0.0028],
+      s: [1.0, 0.9, 0.45],
+      colorFn: pedraSabaoColor(0.88),
     });
 
     const palmNrm = new THREE.Vector3(0, 0, 1);
-    const xKnuckle = xWrist1 + side * (palmLen - 0.0014);
+    const xKnuckle = xWrist1 + side * (palmLen - 0.0012);
+    // 4 dedos rectos, paralelos y juntos como en la foto real
     const fingersSpec = [
-      { dy: +0.0058, dz: +0.0002, angY: +0.13, len: 0.0110, r: 0.00158 },
-      { dy: +0.0020, dz: +0.0004, angY: +0.03, len: 0.0124, r: 0.00166 },
-      { dy: -0.0019, dz: +0.0002, angY: -0.04, len: 0.0112, r: 0.00155 },
-      { dy: -0.0054, dz: -0.0001, angY: -0.14, len: 0.0090, r: 0.00136 },
+      { dy: +0.0042, dz: +0.0001, angY: +0.015, len: 0.0112, r: 0.00138 },
+      { dy: +0.0014, dz: +0.0002, angY: 0.000,  len: 0.0124, r: 0.00142 },
+      { dy: -0.0014, dz: +0.0001, angY: -0.010, len: 0.0114, r: 0.00136 },
+      { dy: -0.0040, dz: 0.0000,  angY: -0.025, len: 0.0092, r: 0.00122 },
     ];
     for (const f of fingersSpec) {
       const fBase = new THREE.Vector3(xKnuckle, yWrist + f.dy, zWrist + f.dz);
-      const fDir = new THREE.Vector3(side * Math.cos(f.angY), Math.sin(f.angY), 0.14).normalize();
+      const fDir = new THREE.Vector3(side * Math.cos(f.angY), Math.sin(f.angY), 0.08).normalize();
       addSculptedFinger(fBase, fDir, palmNrm, f.len, f.r, 22, 16, true);
     }
-    const thumbBase = new THREE.Vector3(xWrist1 + side * 0.0040, yWrist + 0.0054, zWrist + 0.0015);
-    const thumbDir = new THREE.Vector3(side * 0.62, 0.72, 0.32).normalize();
-    addSculptedFinger(thumbBase, thumbDir, palmNrm, 0.0098, 0.00182, 20, 16, false);
+    // Pulgar separado suavemente hacia arriba (~25 grados)
+    const thumbBase = new THREE.Vector3(xWrist1 + side * 0.0045, yWrist + 0.0052, zWrist + 0.0010);
+    const thumbDir = new THREE.Vector3(side * 0.88, 0.42, 0.20).normalize();
+    addSculptedFinger(thumbBase, thumbDir, palmNrm, 0.0092, 0.00158, 20, 16, false);
   }
 
-  // --- 5.5: Cuello, Cabeza Proporcionada (1/6 estatua), Rostro de Gheorghe Leonida y Cabellera (~28.800 tris) ---
+  // --- 5.5: Cuello Liso, Cabeza Proporcionada (1.42:1), Rostro de Leonida y Cabellera (~45.000 tris) ---
   {
-    const Y_NECK_BASE = 0.422; // empotrado 9 mm dentro del escote en V
-    const Z_NECK_BASE = SZ + 0.0020;
-    const HEAD_H = 0.054;      // altura total cuello+cabeza => cima cabeza en ~0.476 (proporción ~1/6 monumental)
-    const headPitch = 0.22;    // inclinación serena hacia +Z
+    const Y_NECK_BASE = 0.422;
+    const Z_NECK_BASE = SZ + 0.0010;
+    const HEAD_H = 0.045; // cuello (0..0.011) + cabeza mentón-coronilla (0.034) => proporción humana fiel ~1.45:1
+    const headPitch = 0.13;
     const cp = Math.cos(headPitch), sp = Math.sin(headPitch);
     const toWorldHead = (lx, ly, lz) => new THREE.Vector3(
       SX + lx,
@@ -870,128 +922,133 @@ export function buildCristo(seed = 137) {
       Z_NECK_BASE + ly * sp + lz * cp,
     );
 
-    const NU_H = 120; // 120 * 120 * 2 = 28.800 triángulos en cabeza y rostro!
-    const NS_H = 120;
+    const NU_H = 150;
+    const NS_H = 150;
     const hRings = [];
     const hCenters = [];
     const hShades = [];
 
     for (let k = 0; k <= NU_H; k++) {
-      const u = k / NU_H; // 0 = base cuello, 0.25 = mentón, 0.56 = ojos, 0.80 = frente alta, 1.0 = coronilla
+      const u = k / NU_H; // 0 = base cuello, 0.24 = mentón, 0.62 = ojos, 0.80 = frente alta, 1.0 = coronilla
       const ly = u * HEAD_H;
 
       let rxBase, rzBase, zCenterShift = 0;
-      if (u < 0.23) {
-        const t = u / 0.23;
-        rxBase = 0.0080 - 0.0005 * Math.sin(t * Math.PI);
-        rzBase = 0.0084 - 0.0004 * Math.sin(t * Math.PI);
-      } else if (u < 0.78) {
-        const t = (u - 0.23) / 0.55;
-        const bulge = Math.sin(t * Math.PI * 0.88);
-        rxBase = 0.0080 + 0.0044 * bulge;
-        rzBase = 0.0084 + 0.0056 * bulge;
-        zCenterShift = 0.0020 * Math.sin(t * Math.PI);
+      if (u < 0.24) {
+        const t = u / 0.24;
+        rxBase = 0.0070 - 0.0003 * Math.sin(t * Math.PI);
+        rzBase = 0.0072 - 0.0002 * Math.sin(t * Math.PI);
       } else {
-        // Cúpula craneal redondeada y estilizada hasta la coronilla
-        const t = (u - 0.78) / 0.22;
-        const cap = Math.sqrt(Math.max(0.012, 1 - t * t));
-        rxBase = 0.0114 * cap;
-        rzBase = 0.0128 * cap;
-        zCenterShift = 0.0010 * (1 - t);
+        // Perfil ovalado humano continuo: más ancho en sienes/pómulos (t ~ 0.60) y bóveda redondeada arriba
+        const t = (u - 0.24) / 0.76; // 0..1
+        const rxMax = 0.0110, rzMax = 0.0122;
+        if (t < 0.60) {
+          const s = smooth(t / 0.60);
+          rxBase = 0.0070 + (rxMax - 0.0070) * s;
+          rzBase = 0.0072 + (rzMax - 0.0072) * s;
+          zCenterShift = 0.0016 * Math.sin((t / 0.60) * Math.PI * 0.5);
+        } else {
+          const s = (t - 0.60) / 0.40;
+          const cap = Math.sqrt(Math.max(0.008, 1 - s * s));
+          rxBase = rxMax * cap;
+          rzBase = rzMax * cap;
+          zCenterShift = 0.0016 * (1 - s);
+        }
       }
 
       const ring = [];
       const shades = [];
       for (let s = 0; s < NS_H; s++) {
         const th = (s / NS_H) * Math.PI * 2;
-        const ct = Math.cos(th); // +1 izq (+X), -1 der (-X)
-        const st = Math.sin(th); // +1 cara (+Z), -1 nuca (-Z)
+        const ct = Math.cos(th);
+        const st = Math.sin(th);
 
         let r = (rxBase * rzBase) / Math.hypot(rzBase * ct, rxBase * st);
         let shade = 1.0;
+        const absX = Math.abs(ct);
 
-        const isFaceFront = st > 0.25 && u >= 0.22 && u <= 0.85;
-
-        // 1) Tendones del cuello
-        if (u < 0.25 && st > 0) {
-          const tendon = Math.exp(-Math.pow((Math.abs(ct) - 0.42 * (1 - u * 1.4)) / 0.15, 2));
-          r += 0.00050 * tendon * (1 - u / 0.25);
+        // 1) Cuello despejado y liso con tendones en V y sombra nítida bajo la barba
+        if (u < 0.26 && st > 0) {
+          const tendon = Math.exp(-Math.pow((absX - 0.36 * (1 - u * 1.1)) / 0.14, 2));
+          r += 0.00035 * tendon * (1 - u / 0.26);
+          if (u > 0.16) {
+            shade -= 0.18 * smooth((u - 0.16) / 0.09) * smooth((st - 0.05) / 0.45);
+          }
         }
 
-        // 2) Rostro Art Déco de Gheorghe Leonida
-        if (isFaceFront) {
-          const faceMask = smooth((st - 0.25) / 0.55);
-          const absX = Math.abs(ct);
+        // 2) Rostro Art Déco nítido de Gheorghe Leonida (frente st > 0.20)
+        if (st > 0.20 && u >= 0.22 && u <= 0.88) {
+          const faceMask = smooth((st - 0.20) / 0.48);
 
-          // Mentón afilado y barba partida Art Déco (u = 0.22 .. 0.37)
-          if (u >= 0.21 && u <= 0.38 && absX < 0.50) {
-            const beardMask = Math.sin(((u - 0.21) / 0.17) * Math.PI) * smooth((0.50 - absX) / 0.20);
-            const splitGroove = Math.exp(-Math.pow(absX / 0.070, 2));
-            const beardRibs = Math.cos(ct * 44);
-            r += (0.0030 - 0.0014 * splitGroove + 0.00048 * beardRibs) * beardMask * faceMask;
-            shade -= 0.06 * splitGroove * beardMask + 0.025 * (0.5 - 0.5 * beardRibs) * beardMask;
+          // Barba geométrica compacta con proyección firme sobre la garganta (u = 0.24 .. 0.40)
+          if (u >= 0.23 && u <= 0.41 && absX < 0.46) {
+            const beardMask = Math.sin(((u - 0.23) / 0.18) * Math.PI) * smooth((0.46 - absX) / 0.18);
+            const splitGroove = Math.exp(-Math.pow(absX / 0.065, 2));
+            r += (0.0032 - 0.0007 * splitGroove) * beardMask * faceMask;
+            shade -= 0.04 * splitGroove * beardMask;
           }
 
-          // Labios y bigote en relieve (u = 0.36 .. 0.45)
-          if (u >= 0.36 && u <= 0.45 && absX < 0.40) {
-            const mouthH = Math.exp(-Math.pow((u - 0.405) / 0.020, 2));
-            const mouthW = smooth((0.34 - absX) / 0.13);
-            const lipLine = Math.exp(-Math.pow((u - 0.405) / 0.006, 2));
-            r += (0.0012 * mouthH - 0.00095 * lipLine) * mouthW * faceMask;
-            shade -= 0.055 * lipLine * mouthW * faceMask;
-            const mustU = 0.428 - 0.055 * absX;
-            const mustMask = Math.exp(-Math.pow((u - mustU) / 0.016, 2)) * smooth((absX - 0.04) / 0.11) * smooth((0.38 - absX) / 0.11);
+          // Labios y bigote en V invertida suave (u = 0.39 .. 0.48)
+          if (u >= 0.38 && u <= 0.48 && absX < 0.38) {
+            const mouthH = Math.exp(-Math.pow((u - 0.425) / 0.017, 2));
+            const mouthW = smooth((0.32 - absX) / 0.12);
+            const lipLine = Math.exp(-Math.pow((u - 0.425) / 0.0055, 2));
+            r += (0.0010 * mouthH - 0.00085 * lipLine) * mouthW * faceMask;
+            shade -= 0.12 * lipLine * mouthW * faceMask;
+            const chinShadow = Math.exp(-Math.pow((u - 0.402) / 0.010, 2)) * mouthW;
+            shade -= 0.09 * chinShadow * faceMask;
+            const mustU = 0.448 - 0.052 * absX;
+            const mustMask = Math.exp(-Math.pow((u - mustU) / 0.015, 2)) * smooth((absX - 0.03) / 0.09) * smooth((0.36 - absX) / 0.10);
             r += 0.00095 * mustMask * faceMask;
           }
 
-          // Pómulos altos Art Déco
-          const cheekMask = Math.exp(-Math.pow((u - 0.50) / 0.07, 2)) * Math.exp(-Math.pow((absX - 0.42) / 0.15, 2));
-          r += 0.0011 * cheekMask * faceMask;
+          // Pómulos planos Art Déco
+          const cheekMask = Math.exp(-Math.pow((u - 0.53) / 0.07, 2)) * Math.exp(-Math.pow((absX - 0.46) / 0.15, 2));
+          r += 0.0009 * cheekMask * faceMask;
 
-          // Nariz prismática recta y estilizada (u = 0.43 .. 0.62)
-          if (u >= 0.43 && u <= 0.63 && absX < 0.20) {
-            const uN = (u - 0.44) / 0.18;
-            const noseProfile = Math.sin(Math.min(1, Math.max(0, uN)) * Math.PI * 0.72) * (1 - 0.42 * Math.pow(uN, 2));
-            const bridge = smooth((0.13 - absX) / 0.08);
-            const tip = Math.exp(-Math.pow((u - 0.46) / 0.026, 2)) * smooth((0.16 - absX) / 0.07);
-            r += (0.0032 * noseProfile * bridge + 0.00085 * tip) * faceMask;
+          // Nariz prismática recta y elegante (u = 0.46 .. 0.68)
+          if (u >= 0.45 && u <= 0.69 && absX < 0.18) {
+            const uN = (u - 0.46) / 0.22;
+            const noseProfile = Math.sin(Math.min(1, Math.max(0, uN)) * Math.PI * 0.72) * (1 - 0.34 * Math.pow(uN, 2));
+            const bridge = smooth((0.115 - absX) / 0.065);
+            const tip = Math.exp(-Math.pow((u - 0.485) / 0.024, 2)) * smooth((0.14 - absX) / 0.06);
+            r += (0.0033 * noseProfile * bridge + 0.00085 * tip) * faceMask;
             shade += 0.03 * bridge * faceMask;
           }
 
-          // Cuencas oculares sombreadas, ojos entornados y arcos superciliares (u = 0.52 .. 0.67)
-          const eyeXDist = Math.abs(absX - 0.27);
-          if (u >= 0.52 && u <= 0.68 && eyeXDist < 0.16) {
-            const eyeWidthMask = smooth((0.15 - eyeXDist) / 0.065);
-            const socket = Math.exp(-Math.pow((u - 0.585) / 0.040, 2)) * eyeWidthMask;
-            r -= 0.0013 * socket * faceMask;
-            shade -= 0.095 * socket * faceMask;
-            const eyeball = Math.exp(-Math.pow((u - 0.582) / 0.016, 2)) * smooth((0.095 - eyeXDist) / 0.045);
-            r += 0.0010 * eyeball * faceMask;
-            shade += 0.035 * eyeball * faceMask;
-            const brow = Math.exp(-Math.pow((u - 0.628 + 0.04 * eyeXDist) / 0.017, 2)) * eyeWidthMask;
-            r += 0.0014 * brow * faceMask;
-          }
-
-          // Frente despejada y noble
-          if (u >= 0.65 && u <= 0.78 && absX < 0.50) {
-            const foreMask = Math.sin(((u - 0.65) / 0.13) * Math.PI) * smooth((0.50 - absX) / 0.18);
-            r += 0.0008 * foreMask * faceMask;
+          // Cejas amplias y cuencas oculares sombreadas con párpados almendrados (u = 0.55 .. 0.72)
+          const eyeXDist = Math.abs(absX - 0.31);
+          if (u >= 0.54 && u <= 0.72 && eyeXDist < 0.21) {
+            const eyeWidthMask = smooth((0.20 - eyeXDist) / 0.075);
+            const socket = Math.exp(-Math.pow((u - 0.615) / 0.038, 2)) * eyeWidthMask;
+            r -= 0.0014 * socket * faceMask;
+            shade -= 0.18 * socket * faceMask;
+            const eyeball = Math.exp(-Math.pow((u - 0.612) / 0.013, 2)) * smooth((0.12 - eyeXDist) / 0.05);
+            r += 0.00095 * eyeball * faceMask;
+            shade += 0.04 * eyeball * faceMask;
+            // Línea oscura del ojo entornado mirando hacia abajo
+            const eyeSlit = Math.exp(-Math.pow((u - 0.606) / 0.005, 2)) * smooth((0.11 - eyeXDist) / 0.04);
+            shade -= 0.14 * eyeSlit * faceMask;
+            const browArch = 0.05 * eyeXDist + 0.10 * eyeXDist * eyeXDist;
+            const brow = Math.exp(-Math.pow((u - 0.662 + browArch) / 0.015, 2)) * eyeWidthMask;
+            r += 0.0015 * brow * faceMask;
           }
         }
 
-        // 3) Cabellera larga Art Déco partida al medio con mechones tallados (suave en frente, volumétrica en sienes y nuca)
-        const hairLineFront = 0.77 + 0.045 * Math.cos(ct * Math.PI * 1.15);
-        const inCrown = smooth((u - hairLineFront) / 0.13);
-        const inSidesAndBack = smooth((0.46 - st) / 0.36) * smooth((u - 0.04) / 0.14);
-        const hairMask = Math.max(inCrown, inSidesAndBack);
-        if (hairMask > 0.01) {
-          const centerPart = Math.exp(-Math.pow(ct / 0.08, 2)) * smooth((u - 0.74) / 0.15);
-          const locks = Math.cos(th * 22 + Math.sin(u * 14) * 0.85);
-          const sharpLocks = Math.sign(locks) * Math.pow(Math.abs(locks), 0.8);
-          // Menos espesor en la frente/coronilla alta (u > 0.78), más caída volumétrica detrás de las sienes y nuca
-          const backVol = 0.45 + 0.65 * smooth((0.35 - st) / 0.75);
-          r += (0.0011 + 0.00075 * sharpLocks - 0.0008 * centerPart) * hairMask * backVol;
-          shade -= 0.055 * (0.5 - 0.5 * sharpLocks) * hairMask + 0.035 * centerPart;
+        // 3) Cabellera lisa enmarcando la frente/sienes con arco ovalado suave y cayendo detrás de las orejas
+        const hairArchFront = 0.84 - 0.14 * absX * absX;
+        const inCrownTop = smooth((u - hairArchFront) / 0.08);
+        if (inCrownTop > 0.01 && st > -0.15) {
+          const partGroove = Math.exp(-Math.pow(absX / 0.055, 2));
+          r += (0.00045 - 0.00032 * partGroove) * inCrownTop;
+          shade -= 0.04 * inCrownTop + 0.025 * partGroove * inCrownTop;
+        }
+        const behindEars = smooth((0.24 - st) / 0.28) * smooth((u - 0.01) / 0.12) * (1 - smooth((u - 0.84) / 0.12));
+        if (behindEars > 0.01) {
+          const sideTresses = smooth((absX - 0.56) / 0.36);
+          const neckFlare = smooth((0.35 - u) / 0.35);
+          const smoothGrooves = Math.cos(th * 12) * 0.00025;
+          r += (0.0012 + (0.0014 + 0.0014 * neckFlare) * sideTresses + smoothGrooves) * behindEars;
+          shade -= 0.08 * behindEars * (0.4 + 0.6 * sideTresses);
         }
 
         ring.push(toWorldHead(r * ct, ly, zCenterShift + r * st));
