@@ -3,9 +3,11 @@
 import { buildFaro } from './faro.js';
 import { buildGlobo } from './globo.js';
 import { buildCastillo } from './castillo.js';
+import { buildColiseo } from './coliseo.js';
 
 export const DIORAMAS = [
   { id: 'faro', name: 'El Faro', build: buildFaro },
   { id: 'globo', name: 'El Mundo en Globo', build: buildGlobo },
   { id: 'castillo', name: 'El Castillo de Hogwarts', build: buildCastillo },
+  { id: 'coliseo', name: 'El Coliseo Romano', build: buildColiseo },
 ];
