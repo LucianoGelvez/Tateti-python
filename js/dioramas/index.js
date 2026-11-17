@@ -6,6 +6,7 @@ import { buildCastillo } from './castillo.js';
 import { buildColiseo } from './coliseo.js';
 import { buildEiffel } from './eiffel.js';
 import { buildTajMahal } from './tajmahal.js';
+import { buildCristo } from './cristo.js';
 
 export const DIORAMAS = [
   { id: 'faro', name: 'El Faro', build: buildFaro },
@@ -14,4 +15,5 @@ export const DIORAMAS = [
   { id: 'coliseo', name: 'El Coliseo Romano', build: buildColiseo },
   { id: 'eiffel', name: 'La Torre Eiffel', build: buildEiffel },
   { id: 'tajmahal', name: 'El Taj Mahal', build: buildTajMahal },
+  { id: 'cristo', name: 'El Cristo Redentor', build: buildCristo, music: 'brasil' },
 ];

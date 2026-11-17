@@ -140,6 +140,33 @@ export const THEMES = {
       }
     },
   },
+  // Cristo Redentor / Río: aires suaves de bossa nova en sol mayor, guitarra, marimba, flauta y shaker.
+  brasil: {
+    bpm: 104, beats: 4, sub: 2, root: 67, minor: false, reverb: 0.42, ambient: 'wind',
+    bars: [
+      ['Gmaj7', 'B5 - A5 - G5 - E5 -'], ['Em7', 'D5 - - B4 G5 - F#5 E5'], ['Am7', 'E5 - G5 - C6 - B5 -'], ['D7', 'A5 - - - F#5 - . .'],
+      ['Bm7', 'D6 - B5 - F#5 - A5 -'], ['Em7', 'G5 - - E5 B5 - A5 G5'], ['Am7', 'C6 - B5 - A5 - G5 F#5'], ['D7', 'G5 - - - . . . .'],
+    ],
+    play(e, bar, s, t, L, pass) {
+      const c = bar.c, step = e.stepDur;
+      if (L[0] && s === 0) {
+        e.pad(t, c.notes, step * 8 + 0.4, 0.055, 0);
+      }
+      if (L[1]) {
+        // Bossa sincopada (3+3+2) en guitarra punteada y bajo
+        if (s === 0 || s === 3 || s === 6) e.pluck(t, c.notes[s % c.notes.length] + 12, step * 2.4, 0.065, 1);
+        if (s === 0 || s === 4) e.bass(t, s === 0 ? c.bass : c.bass + 7, step * 2.5, 0.095, 1);
+        if (s === 2 || s === 5) e.marimba(t, c.notes[(s + 1) % c.notes.length] + 12, step * 1.6, 0.045, 1);
+      }
+      const n = bar.mel[s];
+      if (n && L[2]) e.flute(t, n.m, n.len * step * 0.94, 0.072, 2);
+      if (L[3]) {
+        e.shaker(t, s % 2 === 0 ? 0.022 : 0.012, 3);
+        if (s === 0 || s === 3 || s === 6) e.tek(t, 0.018, 3);
+        if (n && pass % 2 === 1) e.bell(t, n.m + 12, n.len * step, 0.022, 3);
+      }
+    },
+  },
 };
 for (const th of Object.values(THEMES)) th.bars = th.bars.map(([c, m], i) => ({ i, c: chord(c), mel: melody(m) }));
 
@@ -151,6 +178,7 @@ export function themeFor(pz) {
   if (/colis|roma/.test(k)) return 'roma';
   if (/castill|hogwarts/.test(k)) return 'castillo';
   if (/faro|lighthouse/.test(k)) return 'faro';
+  if (/cristo|redentor|brasil|corcovado|r[ií]o/.test(k)) return 'brasil';
   return 'globo';
 }
 
