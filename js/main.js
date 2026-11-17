@@ -1020,8 +1020,9 @@ async function makeMissingThumbs() {
     }
   } catch (e) { /* sin almacenamiento */ }
   for (const pz of DIORAMAS) {
-    if (getThumb(pz) || renderer.xr.isPresenting) continue;
+    if (getThumb(pz)) continue;
     await new Promise((r) => setTimeout(r, 60));
+    while (state.playing || renderer.xr.isPresenting) await new Promise((r) => setTimeout(r, 1000)); // nunca en plena partida: construir un diorama grande da un tirón
     if (pz.id === model.id) { saveThumb(pz, renderThumb(showcase, model.size)); continue; }
     const m = buildBuiltin(pz), mesh = buildMesh(slice(m, 1, 1)[0], m);
     saveThumb(pz, renderThumb(mesh, m.size));
