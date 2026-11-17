@@ -4,6 +4,7 @@ le dice al navegador que no guarde nada en caché, así siempre se ve la última
 
 Uso:  python3 servidor.py [puerto]     (por defecto 8000)
 """
+import errno
 import json
 import sys
 from functools import partial
@@ -43,5 +44,26 @@ if __name__ == "__main__":
     carpeta = Path(__file__).resolve().parent
     for m in listar_modelos(carpeta):
         print(f"  modelo: {m['name']}  ({m['file']}, {m['mb']} MB)")
+    pedido = puerto
+    servidor = None
+    # Si el puerto está ocupado (casi siempre: otro servidor de una vez anterior que sigue abierto),
+    # se prueba con los siguientes en lugar de fallar.
+    while servidor is None and puerto < pedido + 10:
+        try:
+            servidor = ThreadingHTTPServer(("", puerto), partial(SinCache, directory=str(carpeta)))
+        except OSError as e:
+            if e.errno not in (errno.EADDRINUSE, errno.EACCES):
+                raise
+            puerto += 1
+    if servidor is None:
+        sys.exit(f"Los puertos {pedido} a {puerto - 1} están ocupados. Cerrá los servidores viejos con:\n"
+                 f"  pkill -f servidor.py; pkill -f http.server")
+    if puerto != pedido:
+        print(f"\n  El puerto {pedido} ya está en uso (probablemente un servidor anterior que quedó abierto).")
+        print(f"  Para liberarlo: pkill -f servidor.py   (o: fuser -k {pedido}/tcp)")
+        print(f"  Mientras tanto uso el {puerto}. Para el túnel:  cloudflared tunnel --url http://localhost:{puerto}\n")
     print(f"Sirviendo {carpeta} en http://localhost:{puerto}  (Ctrl+C para salir)")
-    ThreadingHTTPServer(("", puerto), partial(SinCache, directory=str(carpeta))).serve_forever()
+    try:
+        servidor.serve_forever()
+    except KeyboardInterrupt:
+        print("\nServidor detenido.")
