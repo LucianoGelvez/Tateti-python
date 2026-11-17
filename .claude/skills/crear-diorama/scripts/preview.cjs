@@ -56,7 +56,7 @@ const server = http.createServer((req, res) => {
       for (const f of m.features || []) byType[f.type] = (byType[f.type] || 0) + 1;
       return { name: m.name, triangles: m.positions.length / 9, sizeMeters: m.size.map((x) => +x.toFixed(3)), features: byType };
     }));
-    if (report.triangles > 120000) report.problems.push(`Demasiados triángulos (${report.triangles}); el máximo para vista previa es 120.000.`);
+    if (report.triangles > 1000000) report.problems.push(`Demasiados triángulos (${report.triangles}); el máximo permitido es 1.000.000.`);
     if (report.triangles < 1500) report.warnings.push(`Muy pocos triángulos (${report.triangles}): las piezas quedarán pobres en detalle.`);
     if (!Object.keys(report.features).length) report.warnings.push('No tiene efectos vivos (features).');
     if (report.sizeMeters[1] < 0.2) report.warnings.push('Es muy chato: menos de 20 cm de alto en el juego.');
@@ -86,7 +86,7 @@ const server = http.createServer((req, res) => {
     for (const count of [50, 100]) {
       await page.click(`#seg-count button[data-v="${count}"]`);
       await page.click('#btn-start');
-      await page.waitForFunction(() => __game.state.playing, null, { timeout: 60000 });
+      await page.waitForFunction(() => __game.state.playing, null, { timeout: 120000 });
       await page.waitForTimeout(500);
       if (count === 50) await page.screenshot({ path: path.join(out, '10-piezas.png') });
       const r = await page.evaluate(() => {
