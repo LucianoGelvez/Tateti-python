@@ -1,6 +1,7 @@
 // Registro de los dioramas incluidos en el juego. El orden es el del menú.
 // Para sumar uno: crear js/dioramas/<id>.js con una función build() y añadirlo a esta lista.
 import { buildFaro } from './faro.js';
+import { buildMachuPicchuV2 } from './machu-picchu-v2.js';
 import { buildGlobo } from './globo.js';
 import { buildCastillo } from './castillo.js';
 import { buildColiseo } from './coliseo.js';
@@ -13,6 +14,7 @@ import { buildStonehenge11 } from './stonehenge11.js';
 
 export const DIORAMAS = [
   { id: 'faro', name: 'El Faro', build: buildFaro },
+  { id: 'machu-picchu-v2', name: 'Machu Picchu — Huayna Picchu', build: buildMachuPicchuV2, music: 'globo' },
   { id: 'globo', name: 'El Mundo en Globo', build: buildGlobo },
   { id: 'castillo', name: 'El Castillo de Hogwarts', build: buildCastillo },
   { id: 'coliseo', name: 'El Coliseo Romano', build: buildColiseo },
