@@ -279,6 +279,45 @@ export const THEMES = {
       }
     },
   },
+
+  // Central Park / Nueva York: paseo suave de jazz otoñal en fa mayor, vibráfono, bajo caminante, flauta y escobillas.
+  newyork: {
+    bpm: 92, beats: 4, sub: 2, root: 65, minor: false, reverb: 0.44, ambient: 'wind',
+    bars: [
+      ['Fmaj7', 'C5 - E5 - A5 - G5 -'], ['Dm7', 'F5 - - E5 D5 - C5 -'],
+      ['Gm7', 'D5 - F5 - Bb5 - A5 -'], ['C7', 'G5 - - - E5 - . .'],
+      ['Am7', 'C6 - B5 A5 G5 - E5 -'], ['Dm7', 'F5 - A5 - C6 - A5 -'],
+      ['Bbmaj7', 'D6 - C6 Bb5 A5 - G5 -'], ['C7', 'F5 - - - . . . .'],
+    ],
+    play(e, bar, s, t, L, pass) {
+      const c = bar.c, step = e.stepDur;
+      if (L[0] && s === 0) {
+        e.pad(t, c.notes, step * 8 + 0.45, 0.052, 0);
+      }
+      if (L[1]) {
+        // Bajo caminante suave y acordes sincopados de vibráfono
+        if (s === 0 || s === 4) e.bass(t, s === 0 ? c.bass : c.bass + 7, step * 3.2, 0.095, 1);
+        else if (s === 2 || s === 6) e.bass(t, c.bass + (s === 2 ? 4 : 5), step * 1.8, 0.070, 1);
+        if (s === 0 || s === 3 || s === 6) {
+          const vNote = c.notes[s % c.notes.length] + 12;
+          e.marimba(t, vNote, step * 2.2, s === 0 ? 0.058 : 0.042, 1);
+        }
+      }
+      const n = bar.mel[s];
+      if (n && L[2]) {
+        if (pass % 2 === 0) e.flute(t, n.m, n.len * step * 0.94, 0.074, 2);
+        else e.reed(t, n.m, n.len * step * 0.90, 0.056, 2, 0.55);
+      }
+      if (L[3]) {
+        // Escobillas de jazz (ride + swing ligero) y adornos de celesta
+        if (s === 0 || s === 2 || s === 4 || s === 5 || s === 6) {
+          e.shaker(t, s % 2 === 0 ? 0.022 : 0.015, 3);
+        }
+        if (s === 2 || s === 6) e.tek(t, 0.014, 3);
+        if (n && pass % 2 === 1) e.bell(t, n.m + 12, n.len * step, 0.024, 3);
+      }
+    },
+  },
 };
 for (const th of Object.values(THEMES)) th.bars = th.bars.map(([c, m], i) => ({ i, c: chord(c), mel: melody(m) }));
 
@@ -294,6 +333,7 @@ export function themeFor(pz) {
   if (/pir[aá]mid|egipt|guiza|giza|esfinge|fara[oó]n/.test(k)) return 'egipto';
   if (/machu|picchu|inca|cusco|andes|per[uú]/.test(k)) return 'andes';
   if (/stonehenge|salisbury|celta|megalit|druida/.test(k)) return 'celta';
+  if (/central\s*park|nueva\s*york|new\s*york|manhattan|nyc/.test(k)) return 'newyork';
   return 'globo';
 }
 
