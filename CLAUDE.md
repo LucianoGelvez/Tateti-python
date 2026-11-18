@@ -27,6 +27,8 @@ No hay visor en las sesiones en la nube. Se verifica con Chromium sin ventana (P
 está instalado): `node .claude/skills/crear-diorama/scripts/preview.cjs <id>` valida un diorama
 y deja capturas. Abrir la página con `?debug` expone `window.__game` para pruebas.
 Decir siempre con claridad qué se probó en el navegador y qué queda por ver en el visor.
+Para revisar un modelo en el visor sin armarlo: botón "Explorar el modelo armado" del menú
+(modo explorar: agrandar, girar, hora del día, modelo anterior/siguiente).
 
 ## Al entregar
 

@@ -204,6 +204,8 @@ const state = {
 };
 const sfx = new Sfx();
 const SETTINGS_KEY = 'diorama3d-settings-v1';
+const PHASES = [0, 0.25, 0.5, 0.75], PHASE_NAMES = ['mediodía', 'atardecer', 'noche', 'amanecer'];
+let fixedPhase = null; // modo explorar: hora elegida a mano
 const settings = { showTimer: false, dayNight: true, showFps: false, music: true, where: 'vr', whereChosen: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* valores por defecto */ }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* nada */ } }
@@ -242,7 +244,7 @@ function clearGame() {
   for (const p of state.pieces) disposeMesh(p.mesh);
   for (const g of state.groups) world.remove(g);
   state.pieces = []; state.groups.clear(); anims.clear();
-  state.finale = null; state.complete = false; zoomAnim = null; twoHand = null;
+  state.finale = null; state.complete = false; state.inspect = false; zoomAnim = null; twoHand = null; fixedPhase = null;
   if (standMesh) standMesh.visible = true;
   drag = null; hoverGroup = null;
   for (const h of hands) h.held = null;
@@ -295,6 +297,57 @@ function buildGame({ count, mode, seed, saved = null }) {
   placeShowcase();
   updateHud(true);
   sfx.setProgress(progress());
+}
+
+// ---------------------------------------------------------------- modo explorar
+// Muestra el modelo entero, ya armado, para revisarlo de cerca: se agranda, se gira, se le cambia
+// la hora del día y se pasa al anterior o al siguiente sin salir del visor. No toca la partida guardada.
+function buildInspect() {
+  clearGame();
+  state.inspect = true;
+  Object.assign(state, { count: 1, mode: 'relax', seed: 1, elapsed: 0 });
+  const r = slice(model, 1, 1)[0];
+  const mesh = buildMesh(r);
+  const piece = { id: 0, mesh, mats: mesh.userData.mats, seedPos: r.seedPos, centroid: new THREE.Vector3(...r.centroid), radius: r.radius, group: null, flash: 0, neighbors: new Map() };
+  mesh.userData.piece = piece;
+  state.pieces = [piece];
+  state.total = 1;
+  const host = { object: mesh, active: () => true }; // todos los efectos encendidos
+  lifeGame = buildLife(model.features || [], () => host);
+  const g = makeGroup([piece]);
+  state.inGame = true;
+  state.complete = true;
+  state.finale = { t: 2, g, fromQ: new THREE.Quaternion(), fromPos: new THREE.Vector3(), fromScale: 1, scale: 1, angle: 0.5, spin: true };
+  Object.assign(orbit, ORBIT_MENU);
+  placeShowcase();
+  updateHud(true);
+  sfx.setProgress(1);
+  syncHud();
+}
+async function inspectModel() {
+  if (loadingModel) await loadingModel.catch(() => {});
+  saveNow(); // la partida que hubiera queda guardada tal cual
+  setBusy(`Preparando «${model.name}»…`);
+  await new Promise((r) => setTimeout(r, 30));
+  try { buildInspect(); } finally { setBusy(''); }
+  play();
+}
+let inspectBusy = false;
+async function inspectStep(d) {
+  if (inspectBusy) return;
+  inspectBusy = true;
+  try {
+    const i = puzzles.findIndex((p) => p.id === model.id);
+    const next = puzzles[(i + d + puzzles.length) % puzzles.length];
+    const keepPhase = fixedPhase;
+    if (await selectPuzzle(next.id)) { buildInspect(); fixedPhase = keepPhase; play(); }
+  } finally { inspectBusy = false; }
+}
+function toggleSpin() {
+  const f = state.finale;
+  if (f) f.spin = f.spin === false;
+  else resetModelSize(); // si lo habían agarrado, vuelve a la exhibición girando
+  syncHud();
 }
 
 const progress = () => (state.total > 1 ? (state.total - state.groups.size) / (state.total - 1) : 0);
@@ -550,7 +603,7 @@ function updateConfetti(dt) {
 // ---------------------------------------------------------------- guardado
 function scheduleSave() { saveTimer = 0.4; }
 function saveNow() {
-  if (!state.inGame) return;
+  if (!state.inGame || state.inspect) return;
   try {
     const r = (x) => Math.round(x * 1e4) / 1e4;
     localStorage.setItem(SAVE_KEY, JSON.stringify({
@@ -587,7 +640,7 @@ function updateHud(force) {
   if (!force && sec === lastHudSec) return;
   lastHudSec = sec;
   const done = state.total - state.groups.size + (state.total ? 1 : 0);
-  const prog = `${state.complete ? state.total : done} / ${state.total} piezas`;
+  const prog = state.inspect ? `${model.name} · ${Math.round(model.positions.length / 9000)} mil triángulos` : `${state.complete ? state.total : done} / ${state.total} piezas`;
   $('progress').textContent = prog;
   $('timer').textContent = fmtTime(state.elapsed);
   $('timer').classList.toggle('hidden', !settings.showTimer);
@@ -599,7 +652,7 @@ function updateHud(force) {
   ctx.beginPath(); ctx.roundRect(4, 4, cv.width - 8, cv.height - 8, 40); ctx.fill();
   ctx.fillStyle = '#1d2733'; ctx.textAlign = 'center';
   ctx.font = '600 58px system-ui, sans-serif';
-  ctx.fillText(state.complete ? '¡Completado!' : prog, cv.width / 2, 84);
+  ctx.fillText(state.inspect ? 'Modo explorar' : state.complete ? '¡Completado!' : prog, cv.width / 2, 84, cv.width - 40);
   ctx.font = '44px system-ui, sans-serif'; ctx.globalAlpha = 0.7;
   const extra = [settings.showTimer ? fmtTime(state.elapsed) : '', settings.showFps ? `${fpsNow} fps` : ''].filter(Boolean).join(' · ');
   ctx.fillText(extra ? `${model.name} · ${extra}` : model.name, cv.width / 2, 150, cv.width - 40);
@@ -937,11 +990,11 @@ function updateHands(dt) {
       let pk = null, ui = null;
       if (h.src && h.tracked) {
         pk = state.playing ? pickVR(h) : null;
-        // la barra de iconos: gana si el rayo la toca antes que a una pieza (y no hay una pieza al alcance de la mano)
+        // la barra de iconos: si el rayo la toca, gana (está por encima y detrás de todo, así que
+        // apuntarla es siempre a propósito), salvo que haya una pieza al alcance de la mano
         if (!pk || pk.dist > 0) {
           setHandRay(h);
           ui = bar.pick(raycaster);
-          if (ui && pk && pk.dist < ui.dist) ui = null;
         }
       }
       h.ui = ui ? ui.btn : null;
@@ -982,12 +1035,13 @@ function exitXR() { const s = renderer.xr.getSession(); if (s) s.end().catch(() 
 // --- barra de iconos dentro del visor ---
 function toggleRef() { showRef = !showRef; placeShowcase(); syncHud(); }
 function toggleSound() { sfx.init(); sfx.setMuted(!sfx.muted); syncHud(); }
-function toggleMusic() { sfx.init(); settings.music = !settings.music; saveSettings(); sfx.setMusicOn(settings.music); $('opt-music').checked = settings.music; syncHud(); }
 let restartArmed = 0; // "Nueva partida" pide confirmar con una segunda pulsación
 const bar = createVRBar([
   { id: 'exit', icon: () => 'exit', label: () => 'Salir del visor', press: exitXR },
   { id: 'mixed', icon: () => 'room', label: () => (xrMixed ? 'Volver al mundo virtual' : 'Realidad mixta: ver mi habitación'),
     active: () => xrMixed, visible: () => xrPassthrough, press: () => setMixed(!xrMixed) },
+  { id: 'prev', icon: () => 'prev', label: () => 'Modelo anterior', visible: () => state.inspect, press: () => inspectStep(-1) },
+  { id: 'next', icon: () => 'next', label: () => 'Modelo siguiente', visible: () => state.inspect, press: () => inspectStep(1) },
   { id: 'ref', icon: () => 'picture', label: () => (showRef ? 'Ocultar la miniatura de referencia' : 'Mostrar la miniatura de referencia'),
     dim: () => !showRef, visible: () => !state.complete, press: toggleRef },
   { id: 'shuffle', icon: () => 'shuffle', label: () => 'Reordenar las piezas sueltas', visible: () => !state.complete,
@@ -995,13 +1049,15 @@ const bar = createVRBar([
   { id: 'shrink', icon: () => 'zoomout', label: () => 'Achicar el modelo', visible: () => state.complete, press: () => zoomModel(1 / 1.6) },
   { id: 'size1', icon: () => 'size1', label: () => 'Tamaño y lugar originales', visible: () => state.complete, press: resetModelSize },
   { id: 'grow', icon: () => 'zoomin', label: () => 'Agrandar el modelo (o agárralo con las dos manos y sepáralas)', visible: () => state.complete, press: () => zoomModel(1.6) },
+  { id: 'spin', icon: () => 'spin', label: () => (state.finale && state.finale.spin !== false ? 'Detener el giro' : 'Hacerlo girar'),
+    visible: () => state.inspect, dim: () => !(state.finale && state.finale.spin !== false), press: toggleSpin },
+  { id: 'time', icon: () => 'clock', label: () => `Hora: ${PHASE_NAMES[phaseIndex()]} (pulsa para cambiar)`, visible: () => state.inspect, press: nextPhase },
   { id: 'sound', icon: () => (sfx.muted ? 'mute' : 'sound'), label: () => (sfx.muted ? 'Activar el sonido' : 'Silenciar'), dim: () => sfx.muted, press: toggleSound },
-  { id: 'music', icon: () => (settings.music ? 'music' : 'musicoff'), label: () => (settings.music ? 'Apagar la música' : 'Encender la música'), dim: () => !settings.music, press: toggleMusic },
-  { id: 'day', icon: () => (settings.dayNight ? 'sun' : 'moon'), label: () => (settings.dayNight ? 'Detener el ciclo de día y noche' : 'Activar el ciclo de día y noche'),
+  { id: 'day', visible: () => !state.inspect, icon: () => (settings.dayNight ? 'sun' : 'moon'), label: () => (settings.dayNight ? 'Detener el ciclo de día y noche' : 'Activar el ciclo de día y noche'),
     dim: () => !settings.dayNight, press: () => { settings.dayNight = !settings.dayNight; saveSettings(); $('opt-daynight').checked = settings.dayNight; } },
-  { id: 'new', icon: () => 'restart', label: () => (performance.now() < restartArmed ? 'Pulsa otra vez para confirmar' : 'Nueva partida'),
+  { id: 'new', visible: () => !state.inspect, icon: () => 'restart', label: () => (performance.now() < restartArmed ? 'Pulsa otra vez para confirmar' : 'Nueva partida'),
     active: () => performance.now() < restartArmed,
-    press: () => { if (performance.now() < restartArmed) { restartArmed = 0; newGame(); } else restartArmed = performance.now() + 3500; } },
+    press: () => { if (performance.now() < restartArmed) { restartArmed = 0; newGame(); } else restartArmed = performance.now() + 5000; } },
 ]);
 scene.add(bar.group);
 function pressBar(h) {
@@ -1041,7 +1097,7 @@ renderer.xr.addEventListener('sessionend', () => {
   setMixed(false);
   if (state.inGame) { layout(false, true); scheduleSave(); }
   onResize();
-  if (state.complete && state.playing) $('done').classList.remove('hidden');
+  if (state.complete && state.playing && !state.inspect) $('done').classList.remove('hidden');
 });
 function refreshXRSupport() {
   $('btn-vr').classList.toggle('hidden', !xrOK);
@@ -1070,7 +1126,7 @@ let selCount = 50, selMode = 'relax';
 const puzzles = [...DIORAMAS];
 let loadingModel = null;
 function setBusy(text) {
-  for (const id of ['btn-start', 'btn-continue']) $(id).disabled = !!text;
+  for (const id of ['btn-start', 'btn-continue', 'btn-inspect']) $(id).disabled = !!text;
   $('puzzle-grid').classList.toggle('busy', !!text);
   if (text !== null) $('puzzle-note').textContent = text || '';
 }
@@ -1200,13 +1256,16 @@ function applyViewOffset() {
   else camera.clearViewOffset();
 }
 // Iconos de la barra superior de la página y su estado.
-const HUD_ICONS = { 'btn-ref': 'picture', 'btn-shuffle': 'shuffle', 'btn-shrink': 'zoomout', 'btn-size1': 'size1', 'btn-grow': 'zoomin', 'btn-sound': 'sound', 'btn-music': 'music', 'btn-vr': 'vr', 'btn-ar': 'room', 'btn-menu': 'menu' };
+const HUD_ICONS = { 'btn-ref': 'picture', 'btn-shuffle': 'shuffle', 'btn-shrink': 'zoomout', 'btn-size1': 'size1', 'btn-grow': 'zoomin', 'btn-sound': 'sound', 'btn-prev': 'prev', 'btn-next': 'next', 'btn-spin': 'spin', 'btn-time': 'clock', 'btn-vr': 'vr', 'btn-ar': 'room', 'btn-menu': 'menu' };
 function syncHud() {
-  for (const id in HUD_ICONS) $(id).innerHTML = svgIcon(id === 'btn-sound' && sfx.muted ? 'mute' : id === 'btn-music' && !settings.music ? 'musicoff' : HUD_ICONS[id]);
+  for (const id in HUD_ICONS) $(id).innerHTML = svgIcon(id === 'btn-sound' && sfx.muted ? 'mute' : HUD_ICONS[id]);
   $('btn-ref').classList.toggle('off', !showRef);
   $('btn-sound').classList.toggle('off', sfx.muted);
-  $('btn-music').classList.toggle('off', !settings.music);
+  $('btn-spin').classList.toggle('off', !(state.finale && state.finale.spin !== false));
+  for (const id of ['btn-prev', 'btn-next', 'btn-spin', 'btn-time']) $(id).classList.toggle('hidden', !state.inspect);
+  if (state.inspect) $('btn-time').title = `Hora del día: ${PHASE_NAMES[phaseIndex()]}`;
   for (const id of ['btn-ref', 'btn-shuffle']) $(id).classList.toggle('hidden', state.complete);
+  $('btn-menu').title = state.inspect ? 'Volver al menú' : 'Menú';
   for (const id of ['btn-shrink', 'btn-size1', 'btn-grow']) $(id).classList.toggle('hidden', !state.complete);
   bar.refresh();
 }
@@ -1230,7 +1289,7 @@ function play() {
   state.playing = true;
   sfx.init();
   sfx.setProgress(state.complete ? 1 : progress());
-  if (state.complete) $('done').classList.remove('hidden');
+  if (state.complete && !state.inspect) $('done').classList.remove('hidden');
 }
 async function newGame() {
   if (loadingModel) await loadingModel.catch(() => {});
@@ -1272,10 +1331,14 @@ $('btn-admire').addEventListener('click', () => $('done').classList.add('hidden'
 $('btn-ref').addEventListener('click', toggleRef);
 $('btn-shuffle').addEventListener('click', () => { layout(false, false); scheduleSave(); });
 $('btn-sound').addEventListener('click', toggleSound);
-$('btn-music').addEventListener('click', toggleMusic);
 $('btn-grow').addEventListener('click', () => zoomModel(1.6));
 $('btn-shrink').addEventListener('click', () => zoomModel(1 / 1.6));
 $('btn-size1').addEventListener('click', resetModelSize);
+$('btn-prev').addEventListener('click', () => inspectStep(-1));
+$('btn-next').addEventListener('click', () => inspectStep(1));
+$('btn-spin').addEventListener('click', toggleSpin);
+$('btn-time').addEventListener('click', nextPhase);
+$('btn-inspect').addEventListener('click', () => launch(inspectModel));
 $('btn-vr').addEventListener('click', () => enterXR(false));
 $('btn-ar').addEventListener('click', () => enterXR(true));
 $('start-label').insertAdjacentHTML('beforebegin', svgIcon('play', 18));
@@ -1300,8 +1363,13 @@ let lastTime = 0;
 const DAY_SECONDS = 180;
 const skyNow = newSky();
 let dayPhase = 0, lifeT = 0;
+const phaseIndex = () => Math.round(((fixedPhase !== null ? fixedPhase : dayPhase) % 1) * 4) % 4;
+function nextPhase() { fixedPhase = PHASES[(phaseIndex() + 1) % 4]; syncHud(); }
 function updateSky(dt) {
-  if (!settings.dayNight) dayPhase += (Math.round(dayPhase) - dayPhase) * Math.min(1, dt * 1.5); // vuelve al mediodía
+  if (fixedPhase !== null) { // avanza hasta la hora elegida (siempre hacia adelante, como un reloj)
+    const diff = (((fixedPhase - dayPhase) % 1) + 1) % 1;
+    dayPhase = diff < 0.002 ? fixedPhase : (dayPhase + Math.min(diff, dt * 0.6)) % 1;
+  } else if (!settings.dayNight) dayPhase += (Math.round(dayPhase) - dayPhase) * Math.min(1, dt * 1.5); // vuelve al mediodía
   else if (state.playing) dayPhase = (dayPhase + dt / DAY_SECONDS) % 1;
   dayNight(dayPhase, skyNow);
   sun.color.copy(skyNow.sun); sun.intensity = skyNow.sunI;
@@ -1357,7 +1425,7 @@ function tick(time) {
   if (f) {
     f.t += dt;
     const k = Math.min(1, f.t / 1.6), s = k * k * (3 - 2 * k);
-    if (f.t > 1.6) f.angle += dt * 0.35 / Math.sqrt(Math.max(1, f.scale)); // grande, gira más despacio
+    if (f.t > 1.6 && f.spin !== false) f.angle += dt * 0.35 / Math.sqrt(Math.max(1, f.scale)); // grande, gira más despacio
     q1.setFromAxisAngle(t2.set(0, 1, 0), f.angle);
     displayPos(f.scale, q1, t1);
     const sc = f.fromScale + (f.scale - f.fromScale) * s;
@@ -1378,7 +1446,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, zoomModel, resetModelSize, get sfx() { return sfx; }, get twoHand() { return twoHand; }, completedGroup, orbit, bar, env, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, inspectModel, inspectStep, nextPhase, toggleSpin, get dayPhase() { return dayPhase; }, zoomModel, resetModelSize, get sfx() { return sfx; }, get twoHand() { return twoHand; }, completedGroup, orbit, bar, env, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {

@@ -26,6 +26,7 @@ python3 servidor.py
 | **Táctil** | Un dedo mueve piezas o la cámara · pellizco = zoom |
 | **VR con mandos** | Gatillo o agarre toma la pieza (al alcance de la mano o apuntando con el rayo; viaja sola hasta la mano) · la palanca la aleja o acerca |
 | **Realidad mixta** | Las piezas flotan en tu habitación real (Quest 3). Se elige en el menú ("Dónde jugar") o se alterna dentro del visor, sin salir |
+| **Explorar el modelo armado** | Botón del menú: muestra el modelo completo sin jugar, para revisarlo. Se agranda, se detiene el giro, se elige la hora del día (mediodía, atardecer, noche, amanecer) y se pasa al anterior o al siguiente sin salir del visor. No toca la partida guardada |
 | **Modelo terminado** | Se puede agrandar o achicar: botones de lupa (barra del visor o de la página), agarrándolo con las dos manos y separándolas, o con la palanca del mando hacia los lados mientras se lo sostiene. El botón del medio lo devuelve a su tamaño y lugar |
 | **Barra de iconos** | Flota sobre la zona de armado dentro del visor: salir, realidad mixta, miniatura de referencia, reordenar piezas, sonido, día y noche, nueva partida. Se apunta con el rayo y se pulsa con gatillo o pinza |
 | **VR con las manos** | Sin mandos: pinza (pulgar + índice) sobre la pieza, o apuntarla con el rayo y hacer pinza |

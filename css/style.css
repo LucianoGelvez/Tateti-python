@@ -119,3 +119,7 @@ label.check input { width: 18px; height: 18px; accent-color: var(--accent); }
   .card { padding: 18px 16px 14px; border-radius: 22px; }
   h1 { font-size: 23px; }
 }
+
+/* botón secundario (explorar el modelo) */
+button.ghost { width: 100%; margin-top: 8px; background: transparent; border: 1px dashed rgba(29, 39, 51, 0.28); color: var(--ink-soft); font-size: 14px; padding: 10px 14px; }
+button.ghost:hover { background: rgba(255, 255, 255, 0.55); color: var(--ink); }
