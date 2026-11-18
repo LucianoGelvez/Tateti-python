@@ -205,6 +205,44 @@ export const THEMES = {
       }
     },
   },
+
+  // Machu Picchu: tema pentatónico andino en mi menor, quena, zampoña, charango, bombo legüero y chajchas.
+  andes: {
+    bpm: 88, beats: 4, sub: 2, root: 64, minor: true, reverb: 0.52, ambient: 'wind',
+    bars: [
+      ['Em', 'E5 - G5 - B5 - A5 G5'], ['G', 'B5 - D6 - B5 - A5 G5'],
+      ['D', 'A5 - - G5 F#5 - D5 -'], ['Em', 'E5 - - - . . . .'],
+      ['Am', 'C6 - B5 A5 G5 - E5 -'], ['C', 'G5 - A5 B5 C6 - B5 A5'],
+      ['B7', 'F#5 - A5 G5 F#5 - D#5 -'], ['Em', 'E5 - - - . . . .'],
+    ],
+    play(e, bar, s, t, L, pass) {
+      const c = bar.c, step = e.stepDur;
+      if (L[0] && s === 0) {
+        e.pad(t, [c.bass + 12, c.bass + 19], step * 8 + 0.5, 0.065, 0);
+        e.choir(t, c.notes, step * 8 + 0.4, 0.024, 0);
+      }
+      if (L[1]) {
+        // Charango arpegiado en semicorcheas dobles suaves y pulso de bombo legüero andino
+        const arp = [0, 2, 1, 2, 0, 2, 1, 2];
+        e.pluck(t, c.notes[arp[s] % c.notes.length] + 12, step * 2.1, s % 2 === 0 ? 0.062 : 0.044, 1);
+        if (s === 0) e.drum(t, 0.145, 72, 1);
+        if (s === 3) e.drum(t, 0.085, 78, 1);
+        if (s === 5) e.tek(t, 0.024, 1);
+      }
+      const n = bar.mel[s];
+      if (n && L[2]) {
+        // Quena en las pasadas pares y doble voz zampoña/quena en pasadas impares
+        e.flute(t, n.m, n.len * step * 0.94, 0.078, 2);
+        if (pass % 2 === 1) e.flute(t, n.m - 5, n.len * step * 0.88, 0.036, 2);
+      }
+      if (L[3]) {
+        if (s === 0 || s === 4) e.bass(t, c.bass, step * 3.2, 0.10, 3);
+        // Chajchas (pezuñas secas) marcando el contratiempo andino
+        if (s % 2 === 1) e.shaker(t, s === 7 ? 0.026 : 0.015, 3);
+        if (n && pass % 2 === 1) e.marimba(t, n.m + 12, step * 1.5, 0.026, 3);
+      }
+    },
+  },
 };
 for (const th of Object.values(THEMES)) th.bars = th.bars.map(([c, m], i) => ({ i, c: chord(c), mel: melody(m) }));
 
@@ -218,6 +256,7 @@ export function themeFor(pz) {
   if (/faro|lighthouse/.test(k)) return 'faro';
   if (/cristo|redentor|brasil|corcovado|r[ií]o/.test(k)) return 'brasil';
   if (/pir[aá]mid|egipt|guiza|giza|esfinge|fara[oó]n/.test(k)) return 'egipto';
+  if (/machu|picchu|inca|cusco|andes|per[uú]/.test(k)) return 'andes';
   return 'globo';
 }
 
