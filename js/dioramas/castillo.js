@@ -82,13 +82,14 @@ export function buildCastillo(seed = 41) {
   const EXPLANADAS = [
     { x: -0.242, z: 0.068,  hw: 0.044, hd: 0.088, rot: 0.22,  y: 0.118, r0: 0.010, r1: 0.034 }, // Gran Comedor + Patio de Entrada
     { x: -0.152, z: -0.062, hw: 0.064, hd: 0.078, rot: 0.05,  y: 0.148, r0: 0.012, r1: 0.036 }, // Gran Torreón + Claustro Principal
-    { x: -0.258, z: -0.068, hw: 0.028, hd: 0.028, rot: 0.42,  y: 0.125, r0: 0.008, r1: 0.024 }, // Torre del Reloj + Hospital
+    { x: -0.258, z: -0.068, hw: 0.028, hd: 0.028, rot: 1.129, y: 0.125, r0: 0.008, r1: 0.024 }, // Torre del Reloj + Hospital
     { x: -0.412, z: -0.142, hw: 0.026, hd: 0.026, rot: 0,     y: 0.086, r0: 0.008, r1: 0.024 }, // Círculo de Piedras
     { x: -0.365, z: -0.215, hw: 0.024, hd: 0.024, rot: 0,     y: 0.106, r0: 0.008, r1: 0.024 }, // Peñón de la Lechucería
     { x: -0.375, z: 0.025,  hw: 0.034, hd: 0.032, rot: 0.35,  y: 0.056, r0: 0.010, r1: 0.028 }, // Cabaña de Hagrid
     { x: 0.145,  z: -0.025, hw: 0.135, hd: 0.066, rot: 0,     y: 0.125, r0: 0.012, r1: 0.038 }, // Bastión + Astronomía + Galería + Campanas
     { x: 0.245,  z: 0.075,  hw: 0.105, hd: 0.044, rot: 0,     y: 0.078, r0: 0.010, r1: 0.030 }, // Invernaderos + Rotonda Botánica
     { x: 0.155,  z: -0.165, hw: 0.054, hd: 0.038, rot: -0.10, y: 0.122, r0: 0.010, r1: 0.032 }, // Torreón Norte (DADA)
+    { x: -0.015, z: -0.220, hw: 0.028, hd: 0.028, rot: 0,     y: 0.072, r0: 0.012, r1: 0.036 }, // Loma del Sauce Boxeador
   ];
 
   const rectDist = (x, z, p) => {
@@ -245,9 +246,12 @@ export function buildCastillo(seed = 41) {
   const addDetailWin = (p, yaw, w, h, mullions = true) => {
     const nx = Math.sin(yaw), nz = Math.cos(yaw);
     addGeo(new THREE.BoxGeometry(w + 0.0042, h + 0.0045, 0.0042, 3, 3, 1), 0x4b453d, { p, r: [0, yaw, 0], amt: 0.04 });
-    // Arco ojival / frontón de piedra encima del marco
-    addGeo(new THREE.ConeGeometry(w * 0.78, 0.006, 4, 1), 0x595248, {
-      p: [p[0] + nx * 0.0006, p[1] + h / 2 + 0.003, p[2] + nz * 0.0006], r: [0, yaw + Math.PI / 4, 0], s: [1, 1, 0.45],
+    // Arco ojival / frontón de piedra encima del marco (pre-rotado antes de escalar para evitar sesgo diagonal)
+    const archGeo = new THREE.ConeGeometry(w * 0.72, 0.0055, 4, 1);
+    archGeo.rotateY(Math.PI / 4);
+    archGeo.scale(1, 1, 0.42);
+    addGeo(archGeo, 0x595248, {
+      p: [p[0] + nx * 0.0008, p[1] + h / 2 + 0.0028, p[2] + nz * 0.0008], r: [0, yaw, 0],
     });
     // Alféizar inferior saliente
     addGeo(new THREE.BoxGeometry(w + 0.0055, 0.0022, 0.0058, 2, 1, 1), 0x595248, { p: [p[0] + nx * 0.0008, p[1] - h / 2 - 0.0012, p[2] + nz * 0.0008], r: [0, yaw, 0] });
@@ -332,6 +336,14 @@ export function buildCastillo(seed = 41) {
     features.push({ type: 'window', pos: [p[0] + nx * (d / 2 + 0.002), p[1], p[2] + nz * (d / 2 + 0.002)], yaw, w: w * 0.48, h: h * 0.48 });
   };
 
+  // Brasero exterior sobre pedestal de piedra (llama contenida al aire libre sin atravesar techos ni muros)
+  const addBrazier = (p, flameSize = 0.0022) => {
+    addGeo(new THREE.CylinderGeometry(0.0022, 0.0032, 0.006, 8), 0x4b453d, { p: [p[0], p[1] - 0.003, p[2]] });
+    addGeo(new THREE.CylinderGeometry(0.0042, 0.0020, 0.004, 10), 0x22252a, { p: [p[0], p[1] + 0.001, p[2]] });
+    addGeo(new THREE.SphereGeometry(0.0028, 8, 5), 0xd95b16, { p: [p[0], p[1] + 0.002, p[2]], s: [1, 0.45, 1] });
+    features.push({ type: 'flame', pos: [p[0], p[1] + 0.0025, p[2]], size: flameSize });
+  };
+
   // =====================================================================
   // 2. EXTREMO SUROESTE: GRAN COMEDOR, PATIO DE ENTRADA, ESCALINATA ZIGZAG Y EMBARCADERO
   // =====================================================================
@@ -365,16 +377,22 @@ export function buildCastillo(seed = 41) {
       }
     }
 
-    // Gran Rosetón frontal y torrecillas en las 4 esquinas del Gran Comedor
+    // Gran Rosetón frontal y puerta doble completa sobre la losa del patio
     const fz = zHall + D / 2 + 0.0015;
-    addGeo(new THREE.CylinderGeometry(0.014, 0.014, 0.004, 20), 0x4b453d, { p: L(0, H * 0.68, fz), r: [Math.PI / 2, rot, 0] });
-    addGeo(new THREE.CylinderGeometry(0.011, 0.011, 0.005, 20), 0x1a2634, { p: L(0, H * 0.68, fz + 0.0005), r: [Math.PI / 2, rot, 0] });
+    addGeo(new THREE.CylinderGeometry(0.014, 0.014, 0.004, 24).rotateX(Math.PI / 2), 0x4b453d, { p: L(0, H * 0.68, fz), r: [0, rot, 0] });
+    addGeo(new THREE.CylinderGeometry(0.011, 0.011, 0.005, 24).rotateX(Math.PI / 2), 0x1a2634, { p: L(0, H * 0.68, fz + 0.0005), r: [0, rot, 0] });
     for (let r = 0; r < 4; r++) {
-      addGeo(new THREE.BoxGeometry(0.021, 0.0016, 0.0055), 0x554e45, { p: L(0, H * 0.68, fz + 0.0008), r: [0, rot, r * Math.PI / 4] });
+      addGeo(new THREE.BoxGeometry(0.021, 0.0016, 0.0055).rotateZ(r * Math.PI / 4), 0x554e45, { p: L(0, H * 0.68, fz + 0.0008), r: [0, rot, 0] });
     }
     features.push({ type: 'window', pos: L(0, H * 0.68, fz + 0.004), yaw: rot, w: 0.018, h: 0.018 });
-    addGeo(new THREE.BoxGeometry(0.022, 0.030, 0.006), 0x4b453d, { p: L(0, 0.015, fz), r: [0, rot, 0] });
-    addGeo(new THREE.BoxGeometry(0.017, 0.026, 0.007), 0x362417, { p: L(0, 0.013, fz + 0.0005), r: [0, rot, 0] });
+    // Marco completo de puerta por encima del pavimento (y = 0.006..0.036)
+    addGeo(new THREE.BoxGeometry(0.024, 0.030, 0.005), 0x4b453d, { p: L(0, 0.021, fz), r: [0, rot, 0] });
+    const doorArch = new THREE.ConeGeometry(0.014, 0.010, 4, 1);
+    doorArch.rotateY(Math.PI / 4);
+    doorArch.scale(1, 1, 0.42);
+    addGeo(doorArch, 0x595248, { p: L(0, 0.041, fz + 0.0005), r: [0, rot, 0] });
+    addGeo(new THREE.BoxGeometry(0.018, 0.027, 0.006), 0x362417, { p: L(0, 0.020, fz + 0.0008), r: [0, rot, 0] });
+    addGeo(new THREE.BoxGeometry(0.0016, 0.027, 0.0066), 0x24170e, { p: L(0, 0.020, fz + 0.0010), r: [0, rot, 0] });
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
       addGeo(new THREE.CylinderGeometry(0.0055, 0.006, H + 0.016, 12, 6), 0x625b50, { p: L(sx * W * 0.48, (H + 0.016) / 2, zHall + sz * D * 0.48), colorFn: stoneColor(y0) });
       addGeo(new THREE.ConeGeometry(0.0075, 0.024, 12, 3), 0x1c282e, { p: L(sx * W * 0.48, H + 0.028, zHall + sz * D * 0.48), colorFn: slateColor });
@@ -391,7 +409,7 @@ export function buildCastillo(seed = 41) {
     addGeo(new THREE.ConeGeometry(0.012, 0.058, 12, 6), 0x1c282e, { p: L(0, H + 0.108, sz), colorFn: slateColor });
     addGeo(new THREE.CylinderGeometry(0.0012, 0.0012, 0.014, 6), 0x9c7b38, { p: L(0, H + 0.142, sz) });
 
-    // Patio de Entrada con galería porticada y torreta circular frontal-izquierda
+    // Patio de Entrada con galería porticada, portal abierto hacia la escalinata y braseros exteriores
     const PW = 0.074, PD = 0.058, zPat = 0.060;
     addSubBox(PW, 0.006, PD, 12, 1, 10, L(0, 0.003, zPat), rot, y0, (va, vb, vc) => {
       const ix = Math.floor((va.x + vb.x + vc.x) * 45), iz = Math.floor((va.z + vb.z + vc.z) * 45);
@@ -401,74 +419,101 @@ export function buildCastillo(seed = 41) {
       addSubBox(0.011, 0.028, PD, 3, 4, 10, L(side * PW / 2, 0.014, zPat), rot, y0);
       addCrenels(L(side * PW / 2, 0.028, zPat - PD / 2), L(side * PW / 2, 0.028, zPat + PD / 2), y0 + 0.028, 0.0085);
     }
-    addSubBox(PW, 0.028, 0.010, 10, 4, 2, L(0, 0.014, zPat + PD / 2), rot, y0);
-    addCrenels(L(-PW / 2, 0.028, zPat + PD / 2), L(PW / 2, 0.028, zPat + PD / 2), y0 + 0.028, 0.0085);
-    // Torreta circular esquina suroeste del patio donde arranca la Escalinata en Zigzag
+    // Muro frontal dividido dejando portal de paso abierto entre xLocal = -0.026 y -0.010
+    addSubBox(0.011, 0.028, 0.010, 2, 4, 2, L(-0.0315, 0.014, zPat + PD / 2), rot, y0);
+    addSubBox(0.047, 0.028, 0.010, 7, 4, 2, L(0.0135, 0.014, zPat + PD / 2), rot, y0);
+    addCrenels(L(-0.003, 0.028, zPat + PD / 2), L(PW / 2, 0.028, zPat + PD / 2), y0 + 0.028, 0.0085);
+    addSubBox(0.020, 0.008, 0.016, 2, 1, 2, L(-0.018, 0.002, zPat + PD / 2 + 0.004), rot, y0);
+    // Pilares flanqueando el portal con braseros por encima de las almenas
+    for (const pxPortal of [-0.028, -0.008]) {
+      addSubBox(0.008, 0.034, 0.012, 2, 4, 2, L(pxPortal, 0.017, zPat + PD / 2), rot, y0);
+      addBrazier(L(pxPortal, 0.035, zPat + PD / 2), 0.0022);
+    }
+    // Torreta circular esquina suroeste del patio
     const stStart = L(-PW / 2 - 0.004, 0, zPat + PD / 2);
     addGeo(new THREE.CylinderGeometry(0.011, 0.012, 0.058, 16, 4), 0x625b50, { p: [stStart[0], y0 + 0.024, stStart[2]], colorFn: stoneColor(y0) });
     addGeo(new THREE.ConeGeometry(0.014, 0.032, 16, 4), 0x1c282e, { p: [stStart[0], y0 + 0.068, stStart[2]], colorFn: slateColor });
-    features.push({ type: 'flame', pos: L(-0.016, 0.032, zPat + PD / 2 + 0.006), size: 0.0055 });
-    features.push({ type: 'flame', pos: L(0.016, 0.032, zPat + PD / 2 + 0.006), size: 0.0055 });
 
-    // ESCALINATA EN ZIGZAG (Z-shape de 3 tramos largos contenida 100% dentro de la bahía y sobre FLOOR)
+    // ESCALINATA EN ZIGZAG CONTINUA + BASTIONES CILÍNDRICOS + PASARELA HASTA EL EMBARCADERO
     const zigPts = [
-      [stStart[0] - 0.005, y0 + 0.002, stStart[2] + 0.008],
-      [-0.295, 0.074, 0.172],
-      [-0.250, 0.038, 0.205],
-      [-0.275, 0.012, 0.236],
+      L(-0.018, 0.003, zPat + PD / 2 + 0.008),
+      [-0.284, 0.082, 0.178],
+      [-0.246, 0.046, 0.204],
+      [-0.264, 0.014, 0.228],
+      [-0.226, 0.014, 0.228],
     ];
-    for (let leg = 0; leg < 3; leg++) {
+    for (let k = 0; k < zigPts.length - 1; k++) {
+      const np = zigPts[k];
+      const pierBot = FLOOR + 0.006;
+      const pierH = Math.max(0.022, np[1] - pierBot);
+      addGeo(new THREE.CylinderGeometry(0.0135, 0.0155, pierH, 20, 6), 0x625b50, { p: [np[0], pierBot + pierH / 2, np[2]], colorFn: stoneColor(FLOOR) });
+      addGeo(new THREE.CylinderGeometry(0.0140, 0.0140, 0.003, 20), 0x4f4940, { p: [np[0], np[1] - 0.001, np[2]] });
+    }
+    for (let leg = 0; leg < zigPts.length - 1; leg++) {
       const A = zigPts[leg], B = zigPts[leg + 1];
-      const steps = 12;
-      const yaw = Math.atan2(B[0] - A[0], B[2] - A[2]);
+      const dx = B[0] - A[0], dy = B[1] - A[1], dz = B[2] - A[2];
+      const lenXZ = Math.hypot(dx, dz), fullLen = Math.hypot(dx, dy, dz);
+      const yaw = Math.atan2(dx, dz), pitch = -Math.atan2(dy, lenXZ);
+      const qFlight = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+      const steps = leg === zigPts.length - 2 ? 8 : 20;
+      const stepD = Math.max(0.007, lenXZ / (steps * 0.7));
       for (let i = 0; i < steps; i++) {
         const t = (i + 0.5) / steps;
-        const px = A[0] + (B[0] - A[0]) * t, py = A[1] + (B[1] - A[1]) * t, pz = A[2] + (B[2] - A[2]) * t;
+        const px = A[0] + dx * t, py = A[1] + dy * t, pz = A[2] + dz * t;
         const gY = Math.max(FLOOR + 0.006, Math.min(height(px, pz), 0) - 0.012);
         const hCol = Math.max(0.016, py - gY);
-        addSubBox(0.018, hCol, 0.012, 2, 4, 2, [px, py - hCol / 2, pz], yaw, gY);
-        for (const sw of [-0.008, 0.008]) {
-          addGeo(new THREE.BoxGeometry(0.003, 0.007, 0.011), 0x5c554b, {
-            p: [px + Math.cos(yaw) * sw, py + 0.0035, pz - Math.sin(yaw) * sw], r: [0, yaw, 0],
-          });
-        }
+        addSubBox(0.017, hCol, stepD, 2, 4, 1, [px, py - hCol / 2, pz], yaw, gY);
       }
-      const pierBot = FLOOR + 0.008;
-      const pierH = Math.max(0.020, B[1] - pierBot);
-      addSubBox(0.024, pierH, 0.024, 3, 5, 3, [B[0], pierBot + pierH / 2, B[2]], 0);
+      // Zancas / barandas laterales inclinadas continuas de punta a punta del tramo
+      const mid = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2 + 0.0038, (A[2] + B[2]) / 2];
+      for (const sw of [-0.0082, 0.0082]) {
+        addGeo(new THREE.BoxGeometry(0.0032, 0.0085, fullLen + 0.008, 1, 2, 12), 0x5c554b, {
+          p: [mid[0] + Math.cos(yaw) * sw, mid[1], mid[2] - Math.sin(yaw) * sw], q: qFlight, colorFn: stoneColor(),
+        });
+      }
     }
   }
 
-  // EMBARCADERO GÓTICO Y 5 BOTES DENTRO DE LA BAHÍA SUROESTE
+  // EMBARCADERO GÓTICO Y 5 BOTES EN AGUAS ABIERTAS DE LA BAHÍA SUROESTE
   {
     const bx = -0.202, bz = 0.228;
-    addSubBox(0.058, 0.055, 0.062, 6, 6, 6, [bx, -0.022, bz], 0, -0.05);
+    addSubBox(0.056, 0.052, 0.058, 6, 6, 6, [bx, -0.022, bz], 0, -0.05);
     addSubBox(0.052, 0.038, 0.056, 8, 6, 8, [bx, 0.026, bz], 0, 0.006);
     addGableZ([bx, 0.045, bz], 0, 0.058, 0.028, 0.060, slateColor);
     addSubBox(0.060, 0.028, 0.030, 8, 4, 4, [bx, 0.020, bz - 0.008], 0, 0.006);
     addGableX([bx, 0.034, bz - 0.008], 0, 0.062, 0.022, 0.032, slateColor);
+    // Andén de piedra conectando la pasarela de la escalinata con la puerta y el muelle
+    addSubBox(0.062, 0.012, 0.064, 6, 2, 6, [bx, 0.008, bz], 0, 0.002);
     addGeo(new THREE.BoxGeometry(0.024, 0.026, 0.008), 0x141210, { p: [bx, 0.018, bz + 0.025] });
     addGeo(new THREE.CylinderGeometry(0.010, 0.012, 0.070, 16, 5), 0x625b50, { p: [bx + 0.024, 0.032, bz - 0.014], colorFn: stoneColor(0) });
     addGeo(new THREE.ConeGeometry(0.014, 0.030, 16, 4), 0x1c282e, { p: [bx + 0.024, 0.082, bz - 0.014], colorFn: slateColor });
     addDetailWin([bx - 0.026, 0.028, bz], -Math.PI / 2, 0.010, 0.014, true);
-    features.push({ type: 'flame', pos: [bx - 0.016, 0.028, bz + 0.031], size: 0.005 });
-    features.push({ type: 'flame', pos: [bx + 0.016, 0.028, bz + 0.031], size: 0.005 });
+    // Dos pilares de piedra adelantados al embarcadero con braseros al aire libre
+    for (const sx of [-1, 1]) {
+      const px = bx + sx * 0.024, pz = bz + 0.042;
+      addGeo(new THREE.CylinderGeometry(0.0038, 0.0046, 0.052, 10), 0x5c554b, { p: [px, -0.006, pz], colorFn: stoneColor(-0.03) });
+      addBrazier([px, 0.021, pz], 0.0020);
+    }
 
     for (let i = 0; i < 6; i++) {
       addGeo(new THREE.BoxGeometry(0.028, 0.004, 0.0065, 3, 1, 1), 0x3b281a, { p: [bx, 0.009, bz + 0.032 + i * 0.0075], colorFn: woodColor });
     }
     const boats = [
-      [-0.145, 0.278, -0.35], [-0.088, 0.268, -0.52], [-0.035, 0.242, -0.68],
-      [-0.225, 0.285, 0.18],  [-0.285, 0.258, 0.42],
+      [-0.142, 0.268, -0.35],
+      [-0.088, 0.262, -0.52],
+      [-0.038, 0.238, -0.68],
+      [-0.122, 0.302, -0.15],
+      [-0.252, 0.282, 0.28],
     ];
     for (const [x, z, r] of boats) {
       const ang = Math.atan2(z - CZ, x - CX);
       if (Math.hypot(x - CX, z - CZ) > rimRadius(ang) * 0.86 || height(x, z) > -0.008) continue;
-      addGeo(new THREE.CylinderGeometry(0.011, 0.0055, 0.014, 14, 2), 0x3b2618, { p: [x, -0.001, z], r: [0, r, 0], s: [0.85, 1, 2.1], colorFn: woodColor });
+      addGeo(new THREE.CylinderGeometry(0.011, 0.0055, 0.012, 14, 2), 0x3b2618, { p: [x, -0.001, z], r: [0, r, 0], s: [0.85, 1, 2.1], colorFn: woodColor });
+      addGeo(new THREE.BoxGeometry(0.012, 0.002, 0.004), 0x4b3221, { p: [x, 0.005, z], r: [0, r, 0] });
       const lx = x + Math.sin(r) * 0.017, lz = z + Math.cos(r) * 0.017;
-      addRod([lx, 0.006, lz], [lx, 0.022, lz], 0.0018, 0x22252a, 6);
-      addGeo(new THREE.BoxGeometry(0.0055, 0.0065, 0.0055), 0xffdd78, { p: [lx, 0.024, lz], r: [0, r, 0] });
-      features.push({ type: 'city', pos: [lx, 0.025, lz], size: 0.0075 });
+      addRod([lx, 0.005, lz], [lx, 0.021, lz], 0.0016, 0x22252a, 6);
+      addGeo(new THREE.BoxGeometry(0.0052, 0.0060, 0.0052), 0xffdd78, { p: [lx, 0.023, lz], r: [0, r, 0] });
+      features.push({ type: 'city', pos: [lx, 0.024, lz], size: 0.0075 });
     }
   }
 
@@ -578,15 +623,17 @@ export function buildCastillo(seed = 41) {
   }
 
   // =====================================================================
-  // 4. ALA OESTE: TORRE DEL RELOJ (FIEL A VISTA 4) Y PUENTE DE MADERA CON CELOSÍA
+  // 4. ALA OESTE: TORRE DEL RELOJ (ALINEADA CON EL PUENTE) Y PUENTE DE MADERA CON CELOSÍA
   // =====================================================================
   {
-    const cx = -0.258, cz = -0.068, y0 = 0.125, rot = 0.42;
+    const cx = -0.258, cz = -0.068, y0 = 0.125;
+    const [bx1, by1, bz1] = [-0.402, 0.088, -0.136];
+    const rot = Math.atan2(bx1 - cx, bz1 - cz) + Math.PI;
     const L = makeLocal(cx, y0, cz, rot);
     const tw = 0.046, td = 0.038, th = 0.120;
     addSubBox(tw + 0.010, 0.080, td + 0.010, 8, 10, 6, L(0, -0.035, 0), rot, y0 - 0.06);
     addSubBox(tw, th, td, 8, 16, 6, L(0, th / 2, 0), rot, y0);
-    // Tejado muy empinado a dos aguas con doble fila de buhardillas y flèche central (como en vista 4!)
+    // Tejado muy empinado a dos aguas con doble fila de buhardillas y flèche central
     addGableZ(L(0, th, 0), rot, tw + 0.008, 0.058, td + 0.008, slateColor);
     addGeo(new THREE.ConeGeometry(0.0055, 0.044, 8, 4), 0x1c282e, { p: L(0, th + 0.074, 0), colorFn: slateColor });
     for (const side of [-1, 1]) {
@@ -595,48 +642,78 @@ export function buildCastillo(seed = 41) {
       addDormer(L(side * tw * 0.30, th + 0.018, 0.008), yaw, 0.007, 0.009, 0.008);
       addDormer(L(side * tw * 0.15, th + 0.036, 0), yaw, 0.006, 0.008, 0.007);
     }
-    // Dos torretas cuadradas laterales adosadas a la Torre del Reloj (vista 4)
+    // Dos torretas cuadradas laterales adosadas a la Torre del Reloj
     for (const sx of [-1, 1]) {
       addSubBox(0.014, th + 0.012, 0.014, 3, 12, 3, L(sx * (tw / 2 + 0.004), (th + 0.012) / 2, 0), rot, y0);
       addGeo(new THREE.ConeGeometry(0.010, 0.036, 4, 3), 0x1c282e, { p: L(sx * (tw / 2 + 0.004), th + 0.030, 0), r: [0, rot + Math.PI / 4, 0], colorFn: slateColor });
     }
-    // Gran arco gótico con el Reloj 3D y tracería en la cara oeste-noroeste (-X / -Z local)
+    // Esfera del Reloj 3D plana sobre ambas fachadas (+Z y -Z) con dial legible, 12 marcas y manecillas centradas
     for (const [sgn, yawFace] of [[1, rot], [-1, rot + Math.PI]]) {
-      const fz = sgn * (td / 2 + 0.0018), fy = th - 0.022;
-      addGeo(new THREE.CylinderGeometry(0.013, 0.013, 0.004, 20), 0x4f4940, { p: L(0, fy, fz), r: [Math.PI / 2, yawFace, 0] });
-      addGeo(new THREE.CylinderGeometry(0.0105, 0.0105, 0.0048, 20), 0x9c7b38, { p: L(0, fy, fz + sgn * 0.0006), r: [Math.PI / 2, yawFace, 0] });
-      addGeo(new THREE.CylinderGeometry(0.009, 0.009, 0.0054, 20), 0xd8ceb2, { p: L(0, fy, fz + sgn * 0.0012), r: [Math.PI / 2, yawFace, 0] });
+      const fz = sgn * (td / 2), fy = th - 0.022;
+      addGeo(new THREE.CylinderGeometry(0.0135, 0.0135, 0.0026, 24).rotateX(Math.PI / 2), 0x4f4940, { p: L(0, fy, fz + sgn * 0.0010), r: [0, rot, 0] });
+      addGeo(new THREE.CylinderGeometry(0.0112, 0.0112, 0.0026, 24).rotateX(Math.PI / 2), 0x9c7b38, { p: L(0, fy, fz + sgn * 0.0014), r: [0, rot, 0] });
+      addGeo(new THREE.CylinderGeometry(0.0096, 0.0096, 0.0026, 24).rotateX(Math.PI / 2), 0xd8ceb2, { p: L(0, fy, fz + sgn * 0.0018), r: [0, rot, 0] });
+      addGeo(new THREE.TorusGeometry(0.0058, 0.00045, 6, 24), 0x9c7b38, { p: L(0, fy, fz + sgn * 0.0032), r: [0, rot, 0] });
       for (let m = 0; m < 12; m++) {
         const ma = (m / 12) * Math.PI * 2;
-        addGeo(new THREE.BoxGeometry(0.0009, 0.0020, 0.0015), 0x1e2024, {
-          p: L(Math.sin(ma) * 0.0072, fy + Math.cos(ma) * 0.0072, fz + sgn * 0.0038), r: [0, yawFace, -ma],
+        const tick = new THREE.BoxGeometry(m % 3 === 0 ? 0.0012 : 0.0008, m % 3 === 0 ? 0.0024 : 0.0017, 0.0009);
+        tick.rotateZ(-ma);
+        addGeo(tick, 0x1e2024, {
+          p: L(Math.sin(ma) * 0.0076, fy + Math.cos(ma) * 0.0076, fz + sgn * 0.0034), r: [0, rot, 0],
         });
       }
-      addGeo(new THREE.BoxGeometry(0.0014, 0.007, 0.0018), 0x16181c, { p: L(-0.0012, fy + 0.002, fz + sgn * 0.0044), r: [0, yawFace, 0.5] });
-      addGeo(new THREE.BoxGeometry(0.0014, 0.005, 0.0018), 0x16181c, { p: L(0.0015, fy + 0.001, fz + sgn * 0.0044), r: [0, yawFace, -0.95] });
-      addDetailWin(L(0, fy - 0.032, fz), yawFace, 0.014, 0.036, true);
+      const hHand = new THREE.BoxGeometry(0.0012, 0.0046, 0.0009);
+      hHand.translate(0, 0.0046 / 2 - 0.0005, 0);
+      hHand.rotateZ(0.85 * sgn);
+      addGeo(hHand, 0x14161a, { p: L(0, fy, fz + sgn * 0.0036), r: [0, rot, 0] });
+      const mHand = new THREE.BoxGeometry(0.0009, 0.0068, 0.0009);
+      mHand.translate(0, 0.0068 / 2 - 0.0005, 0);
+      mHand.rotateZ(-0.55 * sgn);
+      addGeo(mHand, 0x14161a, { p: L(0, fy, fz + sgn * 0.0039), r: [0, rot, 0] });
+      addGeo(new THREE.CylinderGeometry(0.0013, 0.0013, 0.0012, 12).rotateX(Math.PI / 2), 0x9c7b38, { p: L(0, fy, fz + sgn * 0.0041), r: [0, rot, 0] });
+      addDetailWin(L(0, fy - 0.032, fz + sgn * 0.0012), yawFace, 0.014, 0.036, true);
     }
-    // Muralla almenada uniendo Torre del Reloj con el Patio y el Gran Torreón
+    // Pórtico con puerta gótica completa en la base de la fachada oeste conectando con el Puente de Madera
+    addSubBox(0.026, 0.028, 0.014, 3, 4, 2, L(0, 0.014, -td / 2 - 0.004), rot, y0);
+    addGableZ(L(0, 0.028, -td / 2 - 0.004), rot, 0.028, 0.013, 0.016, slateColor);
+    addGeo(new THREE.BoxGeometry(0.014, 0.022, 0.005), 0x4b453d, { p: L(0, 0.011, -td / 2 - 0.009), r: [0, rot, 0] });
+    addGeo(new THREE.BoxGeometry(0.010, 0.019, 0.006), 0x362417, { p: L(0, 0.010, -td / 2 - 0.0095), r: [0, rot, 0] });
+
+    // Muralla almenada y galería de enlace hacia el Patio y el Gran Claustro
     addSubBox(0.068, 0.042, 0.014, 10, 5, 2, [-0.210, 0.115 + 0.016, -0.042], 0.25, 0.11);
     addCrenels([-0.242, 0.115 + 0.037, -0.035], [-0.178, 0.115 + 0.037, -0.050], 0.115 + 0.037, 0.0085);
+    addSubBox(0.024, 0.038, 0.052, 4, 5, 6, L(0, 0.019, td / 2 + 0.022), rot, y0);
+    addGableZ(L(0, 0.038, td / 2 + 0.022), rot, 0.026, 0.016, 0.054, slateColor);
 
-    // PUENTE CUBIERTO DE MADERA (WOODEN BRIDGE) CON RETICULADO COMPLETO EN CELOSÍA (vista 4!)
+    // PUENTE CUBIERTO DE MADERA (WOODEN BRIDGE) ALINEADO Y CONECTADO EN AMBOS EXTREMOS
     {
-      const bx0 = -0.278, by0 = 0.126, bz0 = -0.078;
-      const bx1 = -0.405, by1 = 0.088, bz1 = -0.138;
+      const [bx0, by0, bz0] = L(0, 0.004, -td / 2 - 0.008);
       const dx = bx1 - bx0, dy = by1 - by0, dz = bz1 - bz0;
       const lenXZ = Math.hypot(dx, dz), fullLen = Math.hypot(dx, dy, dz);
       const yaw = Math.atan2(dx, dz), pitch = -Math.atan2(dy, lenXZ);
       const qBridge = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
       const mid = [(bx0 + bx1) / 2, (by0 + by1) / 2, (bz0 + bz1) / 2];
 
-      // Tablero, paredes entramadas y techo a dos aguas
+      // Tablero y tejado inclinado a dos aguas continuo
       addGeo(new THREE.BoxGeometry(0.019, 0.0045, fullLen + 0.010, 4, 1, 20), 0x3b281a, { p: mid, q: qBridge, colorFn: woodColor });
-      addGeo(new THREE.BoxGeometry(0.022, 0.005, fullLen + 0.010, 4, 1, 20), 0x1c282e, { p: [mid[0], mid[1] + 0.024, mid[2]], q: qBridge, colorFn: slateColor });
-      // Casetas de entrada en piedra/madera en ambos extremos del puente
-      for (const [ex, ey, ez] of [[bx0, by0, bz0], [bx1, by1, bz1]]) {
-        addSubBox(0.026, 0.032, 0.022, 3, 4, 3, [ex, ey + 0.012, ez], yaw);
-        addGableZ([ex, ey + 0.028, ez], yaw, 0.028, 0.018, 0.024, slateColor);
+      const bwRoof = 0.024, bhRoof = 0.010, bsLen = Math.hypot(bwRoof / 2, bhRoof), bAng = Math.atan2(bhRoof, bwRoof / 2);
+      for (const side of [-1, 1]) {
+        const off = new THREE.Vector3(side * (bwRoof / 4), 0.022 + bhRoof / 2, 0).applyQuaternion(qBridge);
+        const qRoof = qBridge.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, side * -bAng)));
+        addGeo(new THREE.BoxGeometry(bsLen, 0.0036, fullLen + 0.010, 3, 1, 20), 0x1c282e, {
+          p: [mid[0] + off.x, mid[1] + off.y, mid[2] + off.z], q: qRoof, colorFn: slateColor,
+        });
+      }
+      const ridgeOff = new THREE.Vector3(0, 0.022 + bhRoof, 0).applyQuaternion(qBridge);
+      addGeo(new THREE.BoxGeometry(0.0034, 0.0036, fullLen + 0.010, 1, 1, 20), 0x3b444a, {
+        p: [mid[0] + ridgeOff.x, mid[1] + ridgeOff.y, mid[2] + ridgeOff.z], q: qBridge,
+      });
+      // Caseta de llegada al Círculo de Piedras y peldaños hacia la explanada
+      addSubBox(0.026, 0.032, 0.022, 3, 4, 3, [bx1, by1 + 0.012, bz1], yaw);
+      addGableZ([bx1, by1 + 0.028, bz1], yaw, 0.028, 0.018, 0.024, slateColor);
+      for (let st = 0; st < 3; st++) {
+        const sd = 0.011 + st * 0.0055;
+        addSubBox(0.016, 0.014, 0.006, 2, 2, 1, [bx1 + Math.sin(yaw) * sd, by1 - 0.007 - st * 0.001, bz1 + Math.cos(yaw) * sd], yaw);
       }
       // 14 tramos de celosía de madera densa bajando hasta la garganta con arco central libre
       const bays = 14;
@@ -761,7 +838,13 @@ export function buildCastillo(seed = 41) {
       addGeo(new THREE.TorusGeometry(0.0075, 0.0014, 8, 20), 0x9c7b38, { p: [ax, sy + 0.003, az], r: [0.5, 0.2, 0] });
       addGeo(new THREE.TorusGeometry(0.0075, 0.0014, 8, 20), 0x9c7b38, { p: [ax, sy + 0.003, az], r: [-0.5, 1.3, 0] });
       addGeo(new THREE.SphereGeometry(0.003, 8, 6), 0xb89344, { p: [ax, sy + 0.003, az] });
-      features.push({ type: 'flame', pos: [ax, gy + 0.026, az + 0.032], size: 0.006 });
+      // Luz interior nocturna dentro de la galería de la Torre de Astronomía (sin llama saliendo por el tejado)
+      features.push({ type: 'city', pos: [ax, gy + 0.020, az + 0.022], size: 0.009 });
+      // Dos braseros exteriores sobre pilares en las terrazas abiertas
+      for (const [bxB, bzB] of [[0.052, 0.024], [0.155, 0.026]]) {
+        addGeo(new THREE.CylinderGeometry(0.0032, 0.0038, 0.012, 8), 0x4b453d, { p: [bxB, y0 + 0.005, bzB] });
+        addBrazier([bxB, y0 + 0.011, bzB], 0.0020);
+      }
 
       for (const ang of [0.1, 1.65, 3.2, 4.75]) {
         addDetailWin([ax + Math.sin(ang) * ar, y0 + 0.068, az + Math.cos(ang) * ar], ang, 0.008, 0.022, true);
@@ -977,18 +1060,27 @@ export function buildCastillo(seed = 41) {
   {
     const hx = -0.375, hz = 0.025, y0 = 0.056, rot = 0.35;
     const LH = makeLocal(hx, y0, hz, rot);
-    addGeo(new THREE.CylinderGeometry(0.028, 0.032, 0.038, 12, 3), 0x3b3834, { p: LH(0, -0.012, 0), colorFn: stoneColor(y0 - 0.03) });
+    // Zócalo rebajado hasta y = 0 para no invadir el muro ni tapar la puerta
+    addGeo(new THREE.CylinderGeometry(0.0265, 0.031, 0.036, 14, 3), 0x3b3834, { p: LH(0, -0.018, 0), colorFn: stoneColor(y0 - 0.03) });
     addGeo(new THREE.CylinderGeometry(0.025, 0.027, 0.032, 16, 4), 0x5c554b, { p: LH(0, 0.016, 0), r: [0, rot, 0], colorFn: stoneColor(y0) });
     addGeo(new THREE.ConeGeometry(0.032, 0.036, 16, 4), 0x1c282e, { p: LH(0, 0.050, 0), r: [0, rot, 0], colorFn: slateColor });
-    addGeo(new THREE.CylinderGeometry(0.017, 0.019, 0.026, 12, 3), 0x575046, { p: LH(0.022, 0.008, 0.011), colorFn: stoneColor(y0) });
-    addGeo(new THREE.ConeGeometry(0.022, 0.028, 12, 3), 0x1c282e, { p: LH(0.022, 0.035, 0.011), colorFn: slateColor });
+    // Anexo desplazado ligeramente hacia atrás para despejar el marco derecho de la puerta
+    addGeo(new THREE.CylinderGeometry(0.016, 0.0175, 0.026, 12, 3), 0x575046, { p: LH(0.023, 0.013, 0.005), colorFn: stoneColor(y0) });
+    addGeo(new THREE.ConeGeometry(0.021, 0.028, 12, 3), 0x1c282e, { p: LH(0.023, 0.040, 0.005), colorFn: slateColor });
     addSubBox(0.010, 0.038, 0.010, 2, 4, 2, LH(-0.011, 0.044, -0.011), rot);
-    features.push({ type: 'smoke', pos: LH(-0.011, 0.066, -0.011), size: 0.0075 });
-    features.push({ type: 'smoke', pos: [-0.265, 0.215, 0.012], size: 0.007 }); // humo cocina Gran Comedor
-    addGeo(new THREE.BoxGeometry(0.010, 0.018, 0.0045), 0x362417, { p: LH(0, 0.010, 0.025), r: [0, rot, 0] });
+    features.push({ type: 'smoke', pos: LH(-0.011, 0.066, -0.011), size: 0.0075, color: 0x555a63 });
+    features.push({ type: 'smoke', pos: [-0.265, 0.215, 0.012], size: 0.007, color: 0x555a63 }); // humo cocina Gran Comedor
+    // Puerta principal completa con marco de piedra, dintel, tablones, picaporte y escalones
+    addGeo(new THREE.BoxGeometry(0.013, 0.021, 0.0045), 0x4b453d, { p: LH(0, 0.0105, 0.0275), r: [0, rot, 0] });
+    addGeo(new THREE.BoxGeometry(0.015, 0.003, 0.0055), 0x5c554b, { p: LH(0, 0.021, 0.0280), r: [0, rot, 0] });
+    addGeo(new THREE.BoxGeometry(0.0095, 0.0185, 0.0052), 0x3b2516, { p: LH(0, 0.0095, 0.0282), r: [0, rot, 0] });
+    addGeo(new THREE.BoxGeometry(0.0014, 0.0185, 0.0056), 0x24170e, { p: LH(0, 0.0095, 0.0284), r: [0, rot, 0] });
+    addGeo(new THREE.SphereGeometry(0.0011, 6, 5), 0x9c7b38, { p: LH(0.0028, 0.009, 0.0310) });
+    addSubBox(0.016, 0.0045, 0.007, 2, 1, 1, LH(0, 0.0005, 0.031), rot, y0);
+    addSubBox(0.018, 0.0055, 0.007, 2, 1, 1, LH(0, -0.0035, 0.036), rot, y0);
     addDetailWin(LH(-0.023, 0.018, 0.008), rot - Math.PI / 2, 0.0085, 0.010, true);
     addDetailWin(LH(0, 0.018, -0.023), rot + Math.PI, 0.0085, 0.010, true);
-    addDetailWin(LH(0.022, 0.015, 0.029), rot, 0.008, 0.009, true);
+    addDetailWin(LH(0.023, 0.015, 0.022), rot, 0.008, 0.009, true);
     for (const [px, pz, pr] of [[-0.028, 0.026, 0.006], [-0.019, 0.033, 0.005], [-0.034, 0.014, 0.0055], [-0.013, 0.023, 0.0048]]) {
       const [wx, , wz] = LH(px, 0, pz);
       const wy = height(wx, wz);
@@ -996,27 +1088,43 @@ export function buildCastillo(seed = 41) {
     }
   }
 
-  // Sauce Boxeador en (-0.015, -0.220) + Bosque Prohibido (85 pinos oscuros detallados)
+  // Sauce Boxeador monumental y despejado sobre su loma en (-0.015, -0.220)
   {
     const wx = -0.015, wz = -0.220, wy = height(wx, wz);
-    addRod([wx, wy - 0.010, wz], [wx - 0.005, wy + 0.030, wz + 0.004], 0.0072, 0x382618, 8);
+    for (let r = 0; r < 5; r++) {
+      const ra = (r / 5) * Math.PI * 2 + 0.3;
+      addRod([wx + Math.cos(ra) * 0.004, wy + 0.005, wz + Math.sin(ra) * 0.004], [wx + Math.cos(ra) * 0.020, wy - 0.008, wz + Math.sin(ra) * 0.020], 0.0038, 0x352315, 6);
+    }
+    addRod([wx, wy - 0.008, wz], [wx - 0.005, wy + 0.018, wz + 0.003], 0.011, 0x3b2718, 9);
+    addRod([wx - 0.005, wy + 0.016, wz + 0.003], [wx + 0.002, wy + 0.034, wz - 0.002], 0.0095, 0x382516, 9);
+    addRod([wx + 0.002, wy + 0.032, wz - 0.002], [wx - 0.003, wy + 0.046, wz + 0.002], 0.0080, 0x3e2a19, 8);
+    const trunkTop = [wx - 0.003, wy + 0.044, wz + 0.002];
     const limbs = [
-      [[wx - 0.005, wy + 0.028, wz + 0.004], [wx - 0.024, wy + 0.048, wz + 0.018]],
-      [[wx - 0.005, wy + 0.028, wz + 0.004], [wx + 0.018, wy + 0.046, wz + 0.012]],
-      [[wx - 0.005, wy + 0.028, wz + 0.004], [wx - 0.012, wy + 0.052, wz - 0.020]],
-      [[wx - 0.005, wy + 0.028, wz + 0.004], [wx + 0.015, wy + 0.042, wz - 0.018]],
+      [wx - 0.028, wy + 0.072, wz + 0.022],
+      [wx + 0.026, wy + 0.068, wz + 0.018],
+      [wx - 0.018, wy + 0.078, wz - 0.025],
+      [wx + 0.022, wy + 0.066, wz - 0.022],
+      [wx - 0.032, wy + 0.056, wz - 0.004],
+      [wx + 0.030, wy + 0.058, wz + 0.004],
+      [wx - 0.002, wy + 0.084, wz + 0.016],
+      [wx + 0.006, wy + 0.082, wz - 0.014],
     ];
-    for (const [a, b] of limbs) {
-      addRod(a, b, 0.0032, 0x3d2a1b, 6);
-      addGeo(new THREE.IcosahedronGeometry(0.013, 0), rng() < 0.5 ? 0x2b4728 : 0x355730,
-        { p: b, s: [1.15, 0.85, 1.15], r: [rng() * 3, rng() * 3, 0], amt: 0.09 });
-      for (let w = 0; w < 2; w++) {
-        addGeo(new THREE.ConeGeometry(0.0042, 0.020, 6), 0x243e22, {
-          p: [b[0] + (rng() - 0.5) * 0.010, b[1] - 0.013, b[2] + (rng() - 0.5) * 0.010], r: [Math.PI, 0, 0], amt: 0.08,
+    for (let k = 0; k < limbs.length; k++) {
+      const b = limbs[k];
+      const mid = [(trunkTop[0] + b[0]) * 0.5 + (k % 2 ? 0.004 : -0.004), (trunkTop[1] + b[1]) * 0.5 + 0.004, (trunkTop[2] + b[2]) * 0.5];
+      addRod(trunkTop, mid, 0.0042, 0x3d2a1b, 6);
+      addRod(mid, b, 0.0032, 0x422d1d, 6);
+      addGeo(new THREE.IcosahedronGeometry(0.0052, 0), 0x382516, { p: b, amt: 0.06 });
+      addGeo(new THREE.IcosahedronGeometry(0.016, 0), k % 2 ? 0x2b4728 : 0x365931, {
+        p: b, s: [1.18, 0.85, 1.18], r: [rng() * 3, rng() * 3, 0], amt: 0.09,
+      });
+      for (let w = 0; w < 3; w++) {
+        addGeo(new THREE.ConeGeometry(0.0045, 0.024, 6), 0x233d21, {
+          p: [b[0] + (rng() - 0.5) * 0.012, b[1] - 0.015, b[2] + (rng() - 0.5) * 0.012], r: [Math.PI, 0, 0], amt: 0.08,
         });
       }
     }
-    features.push({ type: 'firefly', pos: [wx, wy + 0.044, wz], size: 0.030 });
+    features.push({ type: 'firefly', pos: [wx, wy + 0.065, wz], size: 0.034 });
   }
 
   // 120 pinos oscuros de 6 pisos en las laderas periféricas del Bosque Prohibido + rocas del sotobosque
@@ -1035,7 +1143,7 @@ export function buildCastillo(seed = 41) {
       [-0.055, 0.025, 0.085],  // Viaducto
       [-0.275, 0.205, 0.065],  // Escalinata zigzag + Embarcadero
       [-0.342, -0.108, 0.060], // Puente de Madera
-      [-0.015, -0.220, 0.045], // Sauce Boxeador
+      [-0.015, -0.220, 0.105], // Sauce Boxeador (claro amplio alrededor)
     ];
     let tries = 0;
     while (placed.length < 120 && tries++ < 7000) {
@@ -1099,7 +1207,7 @@ export function buildCastillo(seed = 41) {
     [-0.28, 0.29,  0.18, 0.016],
   ];
   for (const [cx, cy, cz, cs] of cloudRing) {
-    features.push({ type: 'cloud', pos: [cx, cy, cz], center: [0, cy, -0.04], size: cs });
+    features.push({ type: 'cloud', pos: [cx, cy, cz], center: [0, cy, -0.04], size: cs, color: 0x434852 });
   }
 
   // 3 personas volando en escoba con capa naranja oscuro dando la vuelta a todo el castillo

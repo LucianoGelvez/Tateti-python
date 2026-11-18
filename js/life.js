@@ -85,7 +85,7 @@ export function buildLife(features, hostOf) {
     else if (f.type === 'smoke') {
       const root = new THREE.Group(); root.position.copy(P);
       const geo = new THREE.IcosahedronGeometry(1, 1);
-      const mat = new THREE.MeshLambertMaterial({ color: 0xe8e8ea, transparent: true, opacity: 0.75, depthWrite: false });
+      const mat = new THREE.MeshLambertMaterial({ color: f.color || 0xe8e8ea, transparent: true, opacity: 0.75, depthWrite: false });
       const puffs = [];
       for (let i = 0; i < 6; i++) { const p = new THREE.Mesh(geo, mat); p.userData.life = i / 6; root.add(p); puffs.push(p); }
       host.object.add(noRay(root));
@@ -448,7 +448,7 @@ export function buildLife(features, hostOf) {
       const cloud = new THREE.Group(); cloud.position.copy(P).sub(C);
       cloud.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), cloud.position.clone().normalize());
       const geo = new THREE.IcosahedronGeometry(1, 0);
-      const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true, transparent: true, opacity: 0.95 });
+      const mat = new THREE.MeshLambertMaterial({ color: f.color || 0xffffff, flatShading: true, transparent: true, opacity: 0.95 });
       const blobs = [[0, 0, 0, 1], [0.9, -0.1, 0.2, 0.7], [-0.85, -0.12, -0.1, 0.75], [0.25, 0.1, 0.75, 0.6], [-0.2, 0.25, -0.5, 0.55]];
       for (const [x, y, z, r] of blobs) {
         const m = new THREE.Mesh(geo, mat);
