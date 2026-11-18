@@ -1,4 +1,4 @@
-// Diorama 3D — rompecabezas tridimensional para navegador y WebXR (Meta Quest).
+// Tiny Worlds VR (Piece by Piece) — rompecabezas tridimensional para navegador y WebXR (Meta Quest).
 import * as THREE from './vendor/three.module.js';
 import { DIORAMAS } from './dioramas/index.js';
 import { mulberry32 } from './dioramas/builder.js';

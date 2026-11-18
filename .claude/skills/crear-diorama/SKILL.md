@@ -1,9 +1,9 @@
 ---
 name: crear-diorama
-description: Crea un diorama nuevo, hecho por código y con efectos vivos (luces, humo, llamas, nubes, día y noche), para el juego de rompecabezas 3D de este repositorio (Diorama 3D, WebXR para Meta Quest). Usar SIEMPRE que el usuario pida un diorama, modelo, puzzle, rompecabezas, escena o lugar nuevo para el juego — "quiero que creemos el castillo de…", "hagamos un diorama de la casa de…", "agregá un molino", "otro puzzle", "un modelo nuevo" — y también cuando pida mejorar, retocar o corregir la estética o los efectos de un diorama existente, aunque no diga la palabra "diorama".
+description: Crea un diorama nuevo, hecho por código y con efectos vivos (luces, humo, llamas, nubes, día y noche), para el juego de rompecabezas 3D de este repositorio (Tiny Worlds VR, WebXR para Meta Quest). Usar SIEMPRE que el usuario pida un diorama, modelo, puzzle, rompecabezas, escena o lugar nuevo para el juego — "quiero que creemos el castillo de…", "hagamos un diorama de la casa de…", "agregá un molino", "otro puzzle", "un modelo nuevo" — y también cuando pida mejorar, retocar o corregir la estética o los efectos de un diorama existente, aunque no diga la palabra "diorama".
 ---
 
-# Crear un diorama para Diorama 3D
+# Crear un diorama para Tiny Worlds VR
 
 El juego corta un modelo 3D en piezas y el jugador lo arma en VR o realidad mixta. Los dioramas
 propios se generan **con código** (no hay Blender ni archivos de modelo): cada uno es un archivo
@@ -116,9 +116,20 @@ Si el pedido necesita un efecto que no existe (una noria que gira, un tren, lluv
 volando), se agrega en `js/life.js` siguiendo las indicaciones del final de `references/api.md`.
 Antes de crear uno, ver si alguno existente sirve con otro tamaño o color.
 
-## Lugares de películas, series o juegos
+## Derechos: qué se puede subir al repositorio
 
-Pedidos como "el castillo de tal saga" o "la casa de tal serie" son homenajes de fan para uso
-personal. Evocar el lugar por su arquitectura, proporciones y colores; no copiar logotipos,
-tipografías ni arte oficial, y darle al diorama un nombre descriptivo ("El castillo del lago")
-en vez de la marca. El repositorio es público, así que conviene mantenerlo como obra propia.
+Tiny Worlds VR se va a vender en la Meta Horizon Store, así que lo que entra al repositorio tiene
+que poder venderse:
+
+- **Lugares de películas, series o juegos** (castillos de sagas, casas de series, naves…): no van
+  al repositorio, ni siquiera con otro nombre si el lugar es reconocible. Si el usuario quiere uno
+  para jugar él, se arma solo en su copia local y no se registra en `js/dioramas/index.js` del
+  repositorio. Para el catálogo, crear una versión propia inspirada en el género (un castillo de
+  fantasía original), con forma distinta, no solo un nombre distinto.
+- **Monumentos con derechos de imagen:** algunos tienen restricciones aunque sean famosos. El
+  Cristo Redentor (los derechos los reclama el Arzobispado de Río) queda afuera; la Torre Eiffel
+  de día no tiene problema, pero su iluminación nocturna sí (no reproducir el centelleo ni el
+  faro giratorio de la cima). Ante la duda con un monumento moderno (del siglo XX en adelante),
+  consultarlo con el usuario antes de modelarlo.
+- **Nada de logotipos, tipografías, personajes ni arte oficial** de terceros.
+- **Música:** siempre melodías originales.

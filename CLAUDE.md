@@ -1,10 +1,13 @@
-# Diorama 3D
+# Tiny Worlds VR (antes "Diorama 3D")
 
 Rompecabezas 3D para navegador y WebXR (Meta Quest 3: VR, realidad mixta, mandos y manos).
 Sitio estático, sin paso de compilación: three.js vendorizado en `js/vendor/`.
 
 - El usuario juega **solo en el visor**; su prioridad es cómo se siente en las gafas.
 - Hablarle en español.
+- Es un producto pensado para venderse en la Meta Horizon Store: no usar marcas ni personajes
+  de terceros (nada de Hogwarts, logos, etc.) en lo que se suba al repositorio.
+- `tools/exportar-modelos.mjs` exporta los dioramas a `.glb` (+ `.json` de efectos) por si se migra de motor.
 - Para crear o retocar un diorama, usar la skill `crear-diorama` (`.claude/skills/crear-diorama/`).
 
 ## Mapa

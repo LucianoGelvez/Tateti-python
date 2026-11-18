@@ -1,4 +1,6 @@
-# Diorama 3D — El Faro
+# Tiny Worlds VR
+
+*Piece by Piece* — rompecabezas 3D de lugares en miniatura para Meta Quest.
 
 Rompecabezas tridimensional para navegador y realidad virtual (WebXR, Meta Quest).
 Un diorama low‑poly —una isla con su faro, o un globo aerostático cuya vela es el planeta
