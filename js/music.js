@@ -167,6 +167,44 @@ export const THEMES = {
       }
     },
   },
+
+  // Las Pirámides de Egipto: escala frigia dominante (Hijaz) en re, flauta ney, oboe, arpa, darbuka y coro.
+  egipto: {
+    bpm: 82, beats: 4, sub: 2, root: 62, minor: true, reverb: 0.5, ambient: 'wind',
+    bars: [
+      ['D', 'D5 - Eb5 F#5 G5 - A5 -'], ['Eb', 'Bb5 - A5 G5 F#5 - Eb5 -'],
+      ['Gm', 'G5 - Bb5 - A5 G5 F#5 -'], ['D', 'D5 - - - . . . .'],
+      ['Bb', 'D6 - C6 Bb5 A5 - G5 -'], ['Cm', 'Eb5 - G5 Bb5 A5 - G5 -'],
+      ['Eb', 'G5 - F#5 Eb5 D5 - Eb5 -'], ['A7', 'A5 - G5 E5 C#5 - E5 -'],
+    ],
+    play(e, bar, s, t, L, pass) {
+      const c = bar.c, step = e.stepDur;
+      if (L[0] && s === 0) {
+        e.pad(t, [c.bass + 12, c.bass + 19], step * 8 + 0.5, 0.065, 0);
+        e.choir(t, c.notes, step * 8 + 0.4, 0.026, 0);
+      }
+      if (L[1]) {
+        if (s % 2 === 0) {
+          const arp = [0, 2, 1, 2];
+          e.pluck(t, c.notes[arp[s / 2] % c.notes.length] + 12, step * 2.8, 0.065, 1);
+        }
+        // Ritmo de darbuka / pandero: dum en 0 y 4, tek en 2, 3 y 6
+        if (s === 0) e.drum(t, 0.14, 86, 1);
+        if (s === 4) e.drum(t, 0.08, 92, 1);
+        if (s === 2 || s === 3 || s === 6) e.tek(t, s === 3 ? 0.032 : 0.022, 1);
+      }
+      const n = bar.mel[s];
+      if (n && L[2]) {
+        if (pass % 2 === 0) e.flute(t, n.m, n.len * step * 0.94, 0.075, 2);
+        else e.reed(t, n.m, n.len * step * 0.90, 0.062, 2, 0.75);
+      }
+      if (L[3]) {
+        if (s === 0 || s === 4) e.bass(t, c.bass, step * 3, 0.095, 3);
+        if (s % 2 === 1) e.shaker(t, s === 7 ? 0.022 : 0.013, 3);
+        if (n && pass % 2 === 1) e.bell(t, n.m + 12, n.len * step, 0.024, 3);
+      }
+    },
+  },
 };
 for (const th of Object.values(THEMES)) th.bars = th.bars.map(([c, m], i) => ({ i, c: chord(c), mel: melody(m) }));
 
@@ -179,6 +217,7 @@ export function themeFor(pz) {
   if (/castill|hogwarts/.test(k)) return 'castillo';
   if (/faro|lighthouse/.test(k)) return 'faro';
   if (/cristo|redentor|brasil|corcovado|r[ií]o/.test(k)) return 'brasil';
+  if (/pir[aá]mid|egipt|guiza|giza|esfinge|fara[oó]n/.test(k)) return 'egipto';
   return 'globo';
 }
 
