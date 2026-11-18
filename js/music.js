@@ -243,6 +243,42 @@ export const THEMES = {
       }
     },
   },
+
+  // Stonehenge: tema celta/neolítico en re dórico, arpa celta, flauta de madera, caramillo, bodhrán y coro.
+  celta: {
+    bpm: 84, beats: 4, sub: 2, root: 62, minor: true, reverb: 0.55, ambient: 'wind',
+    bars: [
+      ['Dm', 'D5 - A5 - F5 G5 A5 -'], ['C', 'G5 - E5 - C5 - D5 E5'],
+      ['G', 'B5 - A5 G5 D5 - E5 G5'], ['Dm', 'F5 - E5 D5 - - . .'],
+      ['F', 'A5 - C6 - A5 - G5 F5'], ['C', 'E5 - G5 - C6 - B5 A5'],
+      ['Am7', 'G5 - E5 - D5 - E5 G5'], ['Dm', 'D5 - - - . . . .'],
+    ],
+    play(e, bar, s, t, L, pass) {
+      const c = bar.c, step = e.stepDur;
+      if (L[0] && s === 0) {
+        e.pad(t, [c.bass + 12, c.bass + 19], step * 8 + 0.5, 0.062, 0);
+        e.choir(t, c.notes, step * 8 + 0.4, 0.024, 0);
+      }
+      if (L[1]) {
+        // Arpa celta punteada y pulso ceremonial de bodhrán
+        const arp = [0, 2, 1, 2, 0, 2, 1, 2];
+        e.pluck(t, c.notes[arp[s] % c.notes.length] + 12, step * 2.4, s % 2 === 0 ? 0.064 : 0.046, 1);
+        if (s === 0) e.drum(t, 0.145, 74, 1);
+        if (s === 3) e.drum(t, 0.080, 82, 1);
+        if (s === 6) e.drum(t, 0.095, 78, 1);
+      }
+      const n = bar.mel[s];
+      if (n && L[2]) {
+        if (pass % 2 === 0) e.flute(t, n.m, n.len * step * 0.94, 0.076, 2);
+        else e.reed(t, n.m, n.len * step * 0.90, 0.058, 2, 0.65);
+      }
+      if (L[3]) {
+        if (s === 0 || s === 4) e.bass(t, c.bass, step * 3.4, 0.10, 3);
+        if (s % 2 === 1) e.shaker(t, s === 7 ? 0.022 : 0.013, 3);
+        if (n && pass % 2 === 1) e.bell(t, n.m + 12, n.len * step, 0.024, 3);
+      }
+    },
+  },
 };
 for (const th of Object.values(THEMES)) th.bars = th.bars.map(([c, m], i) => ({ i, c: chord(c), mel: melody(m) }));
 
@@ -257,6 +293,7 @@ export function themeFor(pz) {
   if (/cristo|redentor|brasil|corcovado|r[ií]o/.test(k)) return 'brasil';
   if (/pir[aá]mid|egipt|guiza|giza|esfinge|fara[oó]n/.test(k)) return 'egipto';
   if (/machu|picchu|inca|cusco|andes|per[uú]/.test(k)) return 'andes';
+  if (/stonehenge|salisbury|celta|megalit|druida/.test(k)) return 'celta';
   return 'globo';
 }
 

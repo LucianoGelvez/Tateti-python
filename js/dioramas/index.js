@@ -8,6 +8,8 @@ import { buildEiffel } from './eiffel.js';
 import { buildTajMahal } from './tajmahal.js';
 import { buildPiramides } from './piramides.js';
 import { buildMachupicchu } from './machupicchu.js';
+import { buildStonehenge } from './stonehenge.js';
+import { buildStonehenge11 } from './stonehenge11.js';
 
 export const DIORAMAS = [
   { id: 'faro', name: 'El Faro', build: buildFaro },
@@ -18,4 +20,6 @@ export const DIORAMAS = [
   { id: 'tajmahal', name: 'El Taj Mahal', build: buildTajMahal },
   { id: 'piramides', name: 'Las Pirámides de Egipto', build: buildPiramides, music: 'egipto' },
   { id: 'machupicchu', name: 'Machu Picchu', build: buildMachupicchu, music: 'andes' },
+  { id: 'stonehenge', name: 'Stonehenge', build: buildStonehenge, music: 'celta' },
+  { id: 'stonehenge11', name: 'Stonehenge 1:1', build: buildStonehenge11, music: 'celta' },
 ];
