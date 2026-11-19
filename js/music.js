@@ -318,6 +318,36 @@ export const THEMES = {
       }
     },
   },
+
+  // Oia / Santorini: brisa del Egeo en mi menor armónico/frigio, buzuki (pluck), flauta, pad cálido y pandero.
+  grecia: {
+    bpm: 96, beats: 4, sub: 2, root: 64, minor: true, reverb: 0.46, ambient: 'waves',
+    bars: [
+      ['Em', 'E5 - G5 - B5 - A5 G5'], ['F', 'F5 - A5 - C6 - B5 A5'],
+      ['Dm', 'D5 - F5 - A5 - G5 F5'], ['E', 'E5 - G#5 - B5 - . .'],
+      ['Am', 'C6 - B5 A5 G5 - F5 E5'], ['F', 'A5 - G5 F5 E5 - D5 -'],
+      ['Dm', 'F5 - E5 D5 C5 - B4 -'], ['E', 'E5 - - - . . . .'],
+    ],
+    play(e, bar, s, t, L, pass) {
+      const c = bar.c, step = e.stepDur;
+      if (L[0] && s === 0) e.pad(t, c.notes, step * 8 + 0.4, 0.055, 0);
+      if (L[1]) {
+        const pat = [0, 2, 1, 2, 0, 1, 2, 1];
+        if (s % 2 === 0 || s === 3 || s === 7) e.pluck(t, c.notes[pat[s] % c.notes.length] + 12, step * 2.2, s === 0 ? 0.072 : 0.05, 1);
+        if (s === 0 || s === 4) e.bass(t, c.bass, step * 3, 0.095, 1);
+      }
+      const n = bar.mel[s];
+      if (n && L[2]) {
+        e.pluck(t, n.m, n.len * step * 0.9, 0.08, 2);
+        if (pass % 2 === 1) e.flute(t, n.m, n.len * step * 0.92, 0.05, 2);
+      }
+      if (L[3]) {
+        if (s === 0 || s === 3 || s === 6) e.drum(t, s === 0 ? 0.11 : 0.06, 95, 3);
+        if (s === 2 || s === 4 || s === 7) e.tek(t, 0.022, 3);
+        if (s % 2 === 1) e.shaker(t, 0.015, 3);
+      }
+    },
+  },
 };
 for (const th of Object.values(THEMES)) th.bars = th.bars.map(([c, m], i) => ({ i, c: chord(c), mel: melody(m) }));
 
