@@ -3,6 +3,7 @@
 // Campos opcionales: music (tema de js/music.js) y ground (color del suelo, p. ej. 0xdaba79; si falta,
 // se toma solo el color que más ocupa el terreno de la maqueta).
 import { buildFaro } from './faro.js';
+import { buildKukulcan } from './kukulcan.js';
 import { buildMachuPicchuV2 } from './machu-picchu-v2.js';
 import { buildGlobo } from './globo.js';
 import { buildCastillo } from './castillo.js';
@@ -19,6 +20,7 @@ import { buildLondres } from './londres.js';
 
 export const DIORAMAS = [
   { id: 'faro', name: 'El Faro', build: buildFaro },
+  { id: 'kukulcan', name: 'Templo de Kukulcán', build: buildKukulcan, music: 'globo', ground: 0x819452 },
   { id: 'londres', name: 'Londres — Támesis', build: buildLondres, music: 'londres', ground: 0x8e8a82 },
   { id: 'oia', name: 'Oia — Santorini', build: buildOia, music: 'grecia' },
   { id: 'centralpark', name: 'Central Park — Nueva York', build: buildCentralPark, music: 'newyork' },
