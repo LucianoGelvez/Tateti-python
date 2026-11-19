@@ -56,8 +56,9 @@ const server = http.createServer((req, res) => {
       for (const f of m.features || []) byType[f.type] = (byType[f.type] || 0) + 1;
       return { name: m.name, triangles: m.positions.length / 9, sizeMeters: m.size.map((x) => +x.toFixed(3)), features: byType };
     }));
-    if (report.triangles > 1000000) report.problems.push(`Demasiados triángulos (${report.triangles}); el máximo permitido es 1.000.000.`);
-    if (report.triangles < 1500) report.warnings.push(`Muy pocos triángulos (${report.triangles}): las piezas quedarán pobres en detalle.`);
+    // presupuesto acordado: 100 a 150 mil (lo que el Quest 3/3S mueve con fluidez con 100 piezas)
+    if (report.triangles > 150000) report.problems.push(`Demasiados triángulos (${report.triangles}); el presupuesto es de 100.000 a 150.000.`);
+    else if (report.triangles < 60000) report.warnings.push(`Pocos triángulos (${report.triangles}): hay margen para más detalle (presupuesto: 100.000 a 150.000).`);
     if (!Object.keys(report.features).length) report.warnings.push('No tiene efectos vivos (features).');
     if (report.sizeMeters[1] < 0.2) report.warnings.push('Es muy chato: menos de 20 cm de alto en el juego.');
 

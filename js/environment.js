@@ -314,7 +314,7 @@ export function buildSimpleEnvironment(center) {
   return {
     group,
     update(dt, t, phase, night, light, ground) {
-      floorMat.uniforms.uColor.value.copy(ground).multiplyScalar(0.92);
+      floorMat.uniforms.uColor.value.copy(ground);
       lightFromPhase(phase, light);
     },
   };
@@ -324,7 +324,7 @@ export function buildSimpleEnvironment(center) {
 export const SKY_SHADER = {
   vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `
-    uniform vec3 uA; uniform vec3 uB; uniform vec3 uG; uniform float uSoft;
+    uniform vec3 uA; uniform vec3 uB; uniform vec3 uG; uniform vec3 uF; uniform float uSoft;
     varying vec3 vDir;
     void main(){
       vec3 d = normalize(vDir); float h = d.y;
@@ -338,7 +338,7 @@ export const SKY_SHADER = {
         float landNear = smoothstep(near + 0.06, near - 0.07, h);
         col = mix(col, mix(uG, uA, 0.62), landFar * uSoft * 0.7);
         col = mix(col, mix(uG, uA, 0.22), landNear * uSoft);
-        col = mix(col, uG * 0.9, smoothstep(-0.03, -0.55, h) * uSoft); // suelo lejano
+        col = mix(col, uF, smoothstep(-0.03, -0.55, h) * uSoft); // suelo lejano: del color de la maqueta
       }
       gl_FragColor = vec4(col, 1.0);
     }`,

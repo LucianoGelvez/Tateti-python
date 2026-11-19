@@ -38,7 +38,9 @@ capturas, y subido a la rama de trabajo.
 3. **Escribir `js/dioramas/<id>.js`** exportando `build<Nombre>(seed)`. El `id` va en minúsculas,
    sin espacios ni acentos.
 4. **Registrarlo** en `js/dioramas/index.js` (import + una línea en `DIORAMAS`), con el tema de
-   música que le corresponda (`music`, ver `references/api.md`).
+   música que le corresponda (`music`, ver `references/api.md`) y, si hace falta, el color del
+   suelo del entorno (`ground: 0xRRGGBB`; si se omite, se toma solo el color que más ocupa el
+   terreno de la maqueta). Revisarlo en el modo explorar o en las capturas.
 5. **Previsualizar y validar:**
    ```bash
    node .claude/skills/crear-diorama/scripts/preview.cjs <id>
@@ -58,9 +60,11 @@ capturas, y subido a la rama de trabajo.
 
 Estas no son preferencias: salirse de ellas rompe el juego o el rendimiento en el Quest.
 
-- **Presupuesto: 6.000 a 12.000 triángulos; tope 16.000.** Cada pieza es una llamada de dibujo y
-  el corte añade alrededor de un 40 % de triángulos. Las esferas y los toros son caros: usar
-  pocos segmentos (8 a 12 lados alcanza para casi todo).
+- **Presupuesto: entre 100.000 y 150.000 triángulos.** Es lo que el Quest 3/3S mueve con
+  fluidez con 100 piezas (la Torre Eiffel, con 126 mil, y el Taj Mahal, con 144 mil, son la
+  referencia de lo que anda bien). Por encima de 150 mil se nota en el visor. Las esferas, los
+  toros y las grillas muy finas de terreno o agua son lo que más suma: usar pocos segmentos y
+  celdas de terreno de 3–5 mm (a escala de juego) en lugar de 1–2 mm.
 - **Solo `rng()` para el azar, nunca `Math.random()`.** Las partidas guardadas reconstruyen el
   modelo y lo vuelven a cortar; si la geometría cambia entre una carga y otra, las piezas
   guardadas ya no coinciden.

@@ -4,6 +4,7 @@ import { DIORAMAS } from './dioramas/index.js';
 import { mulberry32 } from './dioramas/builder.js';
 import { slice } from './slicer.js';
 import { clusterSimplify } from './simplify.js';
+import { groundColor } from './groundcolor.js';
 import { loadGLB, normalizeModel } from './loader.js';
 import { Sfx } from './audio.js';
 import { themeFor } from './music.js';
@@ -33,7 +34,7 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 1.7);
 scene.add(hemi);
-const skyUniforms = { uA: { value: new THREE.Color(0xcfe6ec) }, uB: { value: new THREE.Color(0x5c9ed4) }, uG: { value: new THREE.Color(0x7fb07a) }, uSoft: { value: 1 } };
+const skyUniforms = { uA: { value: new THREE.Color(0xcfe6ec) }, uB: { value: new THREE.Color(0x5c9ed4) }, uG: { value: new THREE.Color(0x7fb07a) }, uF: { value: new THREE.Color(0x7fb07a) }, uSoft: { value: 1 } };
 const sun = new THREE.DirectionalLight(0xfff0d8, 2.3);
 sun.position.set(1.5, 3, 2);
 scene.add(sun);
@@ -221,6 +222,17 @@ const state = {
 };
 const sfx = new Sfx();
 const SETTINGS_KEY = 'diorama3d-settings-v1';
+// Color del suelo del entorno sencillo: el del diorama (campo "ground") o el que domina su terreno,
+// llevado a una luminosidad cómoda (ni un pozo negro ni un piso que encandile).
+const FLOOR_DEFAULT = 0x86ad84;
+const floorTarget = new THREE.Color(FLOOR_DEFAULT), floorNow = floorTarget.clone(), floorHSL = { h: 0, s: 0, l: 0 };
+function setFloorFor(pz, mdl) {
+  if (pz && pz.ground != null) { floorTarget.setHex(pz.ground); return; }
+  const c = groundColor(mdl);
+  if (!c) { floorTarget.setHex(FLOOR_DEFAULT); return; }
+  floorTarget.setRGB(c[0], c[1], c[2]).getHSL(floorHSL);
+  floorTarget.setHSL(floorHSL.h, floorHSL.s * 0.65, THREE.MathUtils.clamp(floorHSL.l, 0.32, 0.58));
+}
 const PHASES = [0, 0.25, 0.5, 0.75], PHASE_NAMES = ['mediodía', 'atardecer', 'noche', 'amanecer'];
 let fixedPhase = null; // modo explorar: hora elegida a mano
 const settings = { showTimer: false, dayNight: true, showFps: false, music: true, detailedEnv: false, where: 'vr', whereChosen: false };
@@ -1190,6 +1202,7 @@ async function selectPuzzle(id) {
     $('puzzle-note').textContent = pz.build ? '' : `${Math.round(model.positions.length / 9000)} mil triángulos`;
     markSelected();
     sfx.setTheme(themeFor(pz));
+    setFloorFor(pz, model);
     if (!getThumb(pz)) saveThumb(pz, renderThumb(showcase, model.size));
     return true;
   } catch (e) {
@@ -1276,6 +1289,7 @@ $('opt-music').addEventListener('change', (e) => { sfx.init(); settings.music = 
 // el navegador solo deja empezar el audio tras un primer toque.
 sfx.setMusicOn(settings.music);
 sfx.setTheme(themeFor(FARO));
+setFloorFor(FARO, model);
 sfx.setMusicActive(true);
 sfx.setProgress(0.5);
 document.addEventListener('pointerdown', () => sfx.init(), { once: true, capture: true });
@@ -1413,8 +1427,11 @@ function updateSky(dt) {
   skyUniforms.uA.value.copy(skyNow.sky); skyUniforms.uB.value.copy(skyNow.top);
   // colinas desenfocadas: verde suave teñido por el cielo, más oscuro de noche
   skyUniforms.uG.value.setHex(0x86ad84).lerp(skyNow.sky, 0.4).multiplyScalar(1 - 0.62 * skyNow.night);
+  // suelo del color de la maqueta, con la luz del momento (y un toque del cielo, como la distancia)
+  floorNow.lerp(floorTarget, Math.min(1, dt * 2.5));
+  skyUniforms.uF.value.copy(floorNow).lerp(skyNow.sky, 0.12).multiplyScalar(1 - 0.62 * skyNow.night);
   SKY_COLOR.copy(skyNow.sky); SKY_FOG.color.copy(skyNow.sky);
-  env.update(dt, lifeT, dayPhase, skyNow.night, sun, skyUniforms.uG.value); // dirección de la luz (y en el detallado: astros, nubes, faroles)
+  env.update(dt, lifeT, dayPhase, skyNow.night, sun, skyUniforms.uF.value); // dirección de la luz (y en el detallado: astros, nubes, faroles)
 }
 function tick(time) {
   const dt = Math.min(Math.max((time - lastTime) / 1000, 0), 0.1);
@@ -1486,7 +1503,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, inspectModel, inspectStep, nextPhase, toggleSpin, get dayPhase() { return dayPhase; }, zoomModel, resetModelSize, get sfx() { return sfx; }, get twoHand() { return twoHand; }, completedGroup, orbit, bar, get env() { return env; }, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, get renderer() { return renderer; }, setDetailedEnv(on) { settings.detailedEnv = on; applyEnvironment(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, get floorColor() { return '#' + floorTarget.getHexString(); }, inspectModel, inspectStep, nextPhase, toggleSpin, get dayPhase() { return dayPhase; }, zoomModel, resetModelSize, get sfx() { return sfx; }, get twoHand() { return twoHand; }, completedGroup, orbit, bar, get env() { return env; }, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, get renderer() { return renderer; }, setDetailedEnv(on) { settings.detailedEnv = on; applyEnvironment(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {
