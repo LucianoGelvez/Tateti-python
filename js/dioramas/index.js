@@ -15,9 +15,11 @@ import { buildStonehenge } from './stonehenge.js';
 import { buildStonehenge11 } from './stonehenge11.js';
 import { buildCentralPark } from './centralpark.js';
 import { buildOia } from './oia.js';
+import { buildLondres } from './londres.js';
 
 export const DIORAMAS = [
   { id: 'faro', name: 'El Faro', build: buildFaro },
+  { id: 'londres', name: 'Londres — Támesis', build: buildLondres, music: 'londres', ground: 0x8e8a82 },
   { id: 'oia', name: 'Oia — Santorini', build: buildOia, music: 'grecia' },
   { id: 'centralpark', name: 'Central Park — Nueva York', build: buildCentralPark, music: 'newyork' },
   { id: 'machu-picchu-v2', name: 'Machu Picchu — Huayna Picchu', build: buildMachuPicchuV2, music: 'globo' },

@@ -13,6 +13,7 @@
 //   city     luces de ciudad, de noche
 //   cloud    nube que deriva despacio
 //   flame    llama de quemador, que de noche ilumina desde dentro
+//   wheel    rueda panorámica giratoria (London Eye); de noche sus cápsulas brillan
 import * as THREE from './vendor/three.module.js';
 
 // Nubes de puntos luminosos: destellos del agua (día), luciérnagas y luces de ciudad (noche).
@@ -464,6 +465,54 @@ export function buildLife(features, hostOf) {
         cloud.scale.setScalar(Math.max(1e-4, this.a) * (1 + 0.04 * Math.sin(t * 0.8 + ph)));
         pivot.visible = this.a > 0.01;
       }, dispose() { host.object.remove(pivot); geo.dispose(); mat.dispose(); } });
+    }
+
+    else if (f.type === 'wheel') {
+      // Rueda panorámica: aro doble con radios y cápsulas, girando despacio.
+      const root = new THREE.Group(); root.position.copy(P);
+      const R = f.size, speed = f.speed || 0.14;
+      const steel = new THREE.MeshLambertMaterial({ color: 0xd9dde2, transparent: true });
+      const steel2 = new THREE.MeshLambertMaterial({ color: 0xa8aeb6, transparent: true });
+      const rimA = new THREE.TorusGeometry(R, R * 0.020, 6, 34);
+      const rimB = new THREE.TorusGeometry(R * 0.99, R * 0.011, 5, 34);
+      const r1 = new THREE.Mesh(rimA, steel), r2 = new THREE.Mesh(rimB, steel2);
+      r2.position.z = R * 0.055;
+      const spin = new THREE.Group(); spin.add(r1, r2);
+      // radios: varillas delgadas desde el centro
+      const spokeG = new THREE.CylinderGeometry(R * 0.010, R * 0.010, R * 1.94, 3, 1, true);
+      spokeG.translate(0, R * 0.97, 0);
+      for (let i = 0; i < 12; i++) {
+        const m = new THREE.Mesh(spokeG, steel2);
+        m.rotation.z = (i / 12) * Math.PI * 2;
+        spin.add(m);
+      }
+      // cápsulas: cuerpo blanco + halo azulado de noche
+      const podG = new THREE.SphereGeometry(R * 0.055, 8, 6); podG.scale(1, 1.15, 1);
+      const haloG = new THREE.SphereGeometry(R * 0.065, 8, 6); haloG.scale(1, 1.15, 1);
+      const pods = [];
+      const NP = 26;
+      for (let i = 0; i < NP; i++) {
+        const ang = (i / NP) * Math.PI * 2;
+        const glowM = glowMat(0x9fd8ff);
+        const holder = new THREE.Group();
+        holder.position.set(Math.cos(ang) * R * 0.985, Math.sin(ang) * R * 0.985, R * 0.055);
+        const body = new THREE.Mesh(podG, steel), halo = new THREE.Mesh(haloG, glowM);
+        holder.add(body, halo);
+        spin.add(holder);
+        pods.push({ glowM, ang });
+      }
+      root.add(spin);
+      host.object.add(noRay(root));
+      effects.push({ host, a: 0, update(dt, t, night) {
+        spin.rotation.z = -t * speed;
+        root.visible = this.a > 0.01;
+        for (const p of pods) p.glowM.opacity = this.a * night * (0.10 + 0.10 * Math.max(0, Math.sin(t * 2 + p.ang * 6)));
+      }, dispose() {
+        host.object.remove(root);
+        rimA.dispose(); rimB.dispose(); spokeG.dispose(); podG.dispose(); haloG.dispose();
+        steel.dispose(); steel2.dispose();
+        for (const p of pods) p.glowM.dispose();
+      } });
     }
 
     else if (TWINKLE[f.type]) {

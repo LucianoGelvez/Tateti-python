@@ -348,6 +348,79 @@ export const THEMES = {
       }
     },
   },
+
+  // Londres: banda de metales británica en fa mayor, marcha con tuba oom-pa, caja y
+  // campanas de cambio (change ringing) en las pasadas largas. Melodía original.
+  londres: {
+    bpm: 100, beats: 4, sub: 2, root: 65, minor: false, reverb: 0.42, ambient: 'wind',
+    bars: [
+      ['F', 'F5 - A5 - C6 - A5 -'], ['Bb', 'F5 - - D6 C6 - A5 -'],
+      ['C7', 'G5 - E5 - G5 - - .'], ['F', 'A5 - C6 F6 - - . .'],
+      ['Gm', 'G5 - Bb5 - D6 - C6 -'], ['F', 'C6 - A5 - F5 - A5 -'],
+      ['Bb', 'D6 - C6 Bb5 A5 - G5 -'], ['F7', 'C6 - - - . . . .'],
+    ],
+    play(e, bar, s, t, L, pass) {
+      const c = bar.c, step = e.stepDur;
+      if (L[0] && s === 0) e.brass(t, c.notes, step * 7.2, 0.048, 0);
+      if (L[1]) {
+        // Tuba oom-pa y contracanto corto de corneta
+        if (s === 0 || s === 4) e.bass(t, c.bass - 12, step * 3.4, 0.092, 1);
+        else if (s === 2 || s === 6) e.bass(t, c.bass - 5, step * 1.6, 0.062, 1);
+        if (s === 3 || s === 5 || s === 7) {
+          e.reed(t, c.notes[(s + 1) % c.notes.length] + 12, step * 0.9, 0.028, 1, 0.9);
+        }
+      }
+      const n = bar.mel[s];
+      if (n && L[2]) {
+        // Marcha de trompetas; en cada tercera pasada, campanas de cambio
+        if (pass % 3 < 2) e.reed(t, n.m, n.len * step * 0.92, 0.07, 2, 1.15);
+        else e.bell(t, n.m + 7, n.len * step, 0.036, 2);
+      }
+      if (L[3]) {
+        if (s === 0 || s === 4) { e.drum(t, 0.10, 100, 3); e.bass(t, c.bass, step * 3, 0.05, 3); }
+        if (s % 2 === 1) e.shaker(t, s === 7 ? 0.020 : 0.012, 3);
+        if (s === 6) e.tek(t, 0.026, 3);
+      }
+    },
+  },
+
+  // El Tesoro de Petra: escala árabe Hijaz en mi (E - F - G# - A - B - C - D), laúd oud, ney, coro del cañón y darbuka.
+
+  // El Partenón de Atenas: himno clásico en modo dórico/eólico de re (cítara/lira, aulos, coro del templo y tympanon).
+  atenas: {
+    bpm: 78, beats: 4, sub: 2, root: 62, minor: true, reverb: 0.54, ambient: 'wind',
+    bars: [
+      ['Dm', 'D5 - - E5 F5 - A5 -'], ['C', 'G5 - - F5 E5 - C5 -'],
+      ['Bb', 'D5 - F5 - A5 - G5 -'], ['Am', 'E5 - - - . . . .'],
+      ['Gm', 'G5 - Bb5 - D6 - C6 Bb5'], ['F', 'A5 - G5 F5 E5 - D5 -'],
+      ['C', 'E5 - G5 - C6 - A5 -'], ['Dm', 'D5 - - - . . . .'],
+    ],
+    play(e, bar, s, t, L, pass) {
+      const c = bar.c, step = e.stepDur;
+      if (L[0] && s === 0) {
+        e.pad(t, [c.bass + 12, c.bass + 19], step * 8 + 0.5, 0.058, 0);
+        e.choir(t, c.notes, step * 8 + 0.45, 0.026, 0);
+      }
+      if (L[1]) {
+        const arp = [0, 2, 1, 2, 0, 1, 2, 1];
+        if (s % 2 === 0 || s === 5) e.pluck(t, c.notes[arp[s] % c.notes.length] + 12, step * 2.6, s === 0 ? 0.070 : 0.048, 1);
+        if (s === 0 || s === 4) e.bass(t, c.bass, step * 3.4, 0.090, 1);
+      }
+      const n = bar.mel[s];
+      if (n && L[2]) {
+        if (pass % 2 === 0) e.flute(t, n.m, n.len * step * 0.94, 0.072, 2);
+        else e.reed(t, n.m, n.len * step * 0.90, 0.056, 2, 0.65);
+      }
+      if (L[3]) {
+        if (s === 0) e.drum(t, 0.11, 86, 3);
+        if (s === 4) e.drum(t, 0.06, 92, 3);
+        if (s === 2 || s === 6) e.tek(t, 0.018, 3);
+        if (n && pass % 2 === 1) e.bell(t, n.m + 12, n.len * step, 0.020, 3);
+      }
+    },
+  },
+
+  // Los Jardines de Babilonia: modo frigio dominante / mesopotámico en sol menor y re, arpa de Ur, flauta de caña, oboe, tambor de marco y crótalos.
 };
 for (const th of Object.values(THEMES)) th.bars = th.bars.map(([c, m], i) => ({ i, c: chord(c), mel: melody(m) }));
 
@@ -364,6 +437,8 @@ export function themeFor(pz) {
   if (/machu|picchu|inca|cusco|andes|per[uú]/.test(k)) return 'andes';
   if (/stonehenge|salisbury|celta|megalit|druida/.test(k)) return 'celta';
   if (/central\s*park|nueva\s*york|new\s*york|manhattan|nyc/.test(k)) return 'newyork';
+  if (/lond[re][ae]s|london|t[aá]mesis|thames|westminster|big\s*ben/.test(k)) return 'londres';
+  if (/parten[oó]n|pante[oó]n|atenas|acr[oó]pol/.test(k)) return 'atenas';
   return 'globo';
 }
 
