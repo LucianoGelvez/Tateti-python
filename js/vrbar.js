@@ -19,8 +19,8 @@ function canvasPlane(w, h, pxW, pxH) {
 export function createVRBar(defs) {
   const group = new THREE.Group();
   group.visible = false;
-  group.position.set(0, 2.05, -1.6);
-  group.scale.setScalar(1.45); // a 1,6 m: se ve del mismo tamaño que antes a 1,1 m
+  group.position.set(0, 1.88, -0.64);
+  group.scale.setScalar(0.85); // a 70 cm: botones de unos 5 cm
 
   const plate = canvasPlane(1, SIZE + PAD * 2, 512, 64);
   plate.mesh.position.z = -0.004; plate.mesh.renderOrder = 20;
@@ -119,8 +119,8 @@ export function createVRBar(defs) {
 
   // Coloca la barra por encima de la zona de armado, mirando hacia la cabeza del jugador.
   function place(head, center) {
-    // lejos y por encima de la zona de armado, para que no estorbe al mover piezas
-    group.position.set(center.x, THREE.MathUtils.clamp(head.y + 0.45, 1.55, 2.6), center.z - 1.15);
+    // a 70 cm de la cabeza, hacia adelante y por encima de la zona donde flotan las piezas
+    group.position.set(head.x, head.y + 0.28, head.z - 0.64);
     group.lookAt(head.x, head.y, head.z);
     group.updateMatrixWorld(true);
   }

@@ -263,10 +263,7 @@ export function buildEnvironment(center) {
       cloudMat.emissive.setScalar(0.2 * (1 - night));
       lampGlow.opacity = night * 0.8 * (0.92 + 0.08 * Math.sin(t * 5.3));
       lampCore.color.setHex(0x6b5a3a).lerp(tmp.setHex(0xffe9a8), night);
-      // la luz viene del sol de día y de la luna de noche, nunca desde debajo del horizonte
-      const w = THREE.MathUtils.smoothstep(Math.cos(a), -0.3, 0.05);
-      lightDir.copy(moonDir).setY(Math.max(moonDir.y, 0.3)).normalize().lerp(tmp3.copy(sunDir).setY(Math.max(sunDir.y, 0.3)).normalize(), w).normalize();
-      light.position.copy(lightDir).multiplyScalar(6);
+      lightFromPhase(phase, light);
       // luciérnagas
       flies.pts.visible = night > 0.03;
       if (flies.pts.visible) {
@@ -285,3 +282,64 @@ export function buildEnvironment(center) {
   };
 }
 const tmp3 = new THREE.Vector3();
+
+// Dirección de la luz principal: del sol de día y de la luna de noche, nunca desde debajo del horizonte.
+const sunV = new THREE.Vector3(), moonV = new THREE.Vector3(), mixV = new THREE.Vector3();
+export function lightFromPhase(phase, light) {
+  const a = phase * Math.PI * 2;
+  sunV.set(Math.sin(a) * 0.9, Math.cos(a), -0.38).normalize();
+  moonV.set(-Math.sin(a) * 0.9, -Math.cos(a), -0.38).normalize();
+  const w = THREE.MathUtils.smoothstep(Math.cos(a), -0.3, 0.05);
+  mixV.copy(moonV).setY(Math.max(moonV.y, 0.3)).normalize().lerp(sunV.setY(Math.max(sunV.y, 0.3)).normalize(), w).normalize();
+  light.position.copy(mixV).multiplyScalar(6);
+}
+
+// Entorno sencillo (el predeterminado): sin geometría alrededor, solo un suelo suave bajo los pies.
+// El cielo dibuja un paisaje desenfocado (ver SKY_SHADER), así el fondo no compite con el modelo
+// y el visor gasta sus recursos en el rompecabezas.
+export function buildSimpleEnvironment(center) {
+  const group = new THREE.Group();
+  const floorMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: false,
+    uniforms: { uColor: { value: new THREE.Color(0x7fa98a) } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    // disco que se funde con el fondo hacia los bordes
+    fragmentShader: 'uniform vec3 uColor; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float a = smoothstep(1.0, 0.15, r) * 0.9; gl_FragColor = vec4(uColor * (1.0 - 0.12 * r), a); }',
+  });
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(4.2, 48), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(center.x, 0, -0.2);
+  floor.renderOrder = -4;
+  group.add(floor);
+  return {
+    group,
+    update(dt, t, phase, night, light, ground) {
+      floorMat.uniforms.uColor.value.copy(ground).multiplyScalar(0.92);
+      lightFromPhase(phase, light);
+    },
+  };
+}
+
+// Cielo con degradé; con uSoft = 1 suma un horizonte de colinas desenfocadas (bordes muy suaves).
+export const SKY_SHADER = {
+  vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: `
+    uniform vec3 uA; uniform vec3 uB; uniform vec3 uG; uniform float uSoft;
+    varying vec3 vDir;
+    void main(){
+      vec3 d = normalize(vDir); float h = d.y;
+      vec3 col = mix(uA, uB, smoothstep(-0.02, 0.7, h));
+      if (uSoft > 0.0) {
+        float az = atan(d.z, d.x);
+        // colinas bajas y muy difusas: sugieren un paisaje lejano sin dibujar nada concreto
+        float far = 0.035 + 0.025 * sin(az * 2.0 + 4.0) + 0.012 * sin(az * 5.0 + 1.0);
+        float near = 0.004 + 0.018 * sin(az * 3.0 + 1.3) + 0.01 * sin(az * 7.0 + 0.4);
+        float landFar = smoothstep(far + 0.07, far - 0.05, h);
+        float landNear = smoothstep(near + 0.06, near - 0.07, h);
+        col = mix(col, mix(uG, uA, 0.62), landFar * uSoft * 0.7);
+        col = mix(col, mix(uG, uA, 0.22), landNear * uSoft);
+        col = mix(col, uG * 0.9, smoothstep(-0.03, -0.55, h) * uSoft); // suelo lejano
+      }
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+};

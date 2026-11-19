@@ -3,12 +3,13 @@ import * as THREE from './vendor/three.module.js';
 import { DIORAMAS } from './dioramas/index.js';
 import { mulberry32 } from './dioramas/builder.js';
 import { slice } from './slicer.js';
+import { clusterSimplify } from './simplify.js';
 import { loadGLB, normalizeModel } from './loader.js';
 import { Sfx } from './audio.js';
 import { themeFor } from './music.js';
 import { buildLife, dayNight, newSky } from './life.js';
 import { XRHandMeshModel } from './vendor/addons/webxr/XRHandMeshModel.js';
-import { buildEnvironment } from './environment.js';
+import { buildEnvironment, buildSimpleEnvironment, SKY_SHADER } from './environment.js';
 import { createVRBar } from './vrbar.js';
 import { svgIcon } from './icons.js';
 
@@ -32,25 +33,28 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 1.7);
 scene.add(hemi);
-const skyUniforms = { uA: { value: new THREE.Color(0xcfe6ec) }, uB: { value: new THREE.Color(0x5c9ed4) } };
+const skyUniforms = { uA: { value: new THREE.Color(0xcfe6ec) }, uB: { value: new THREE.Color(0x5c9ed4) }, uG: { value: new THREE.Color(0x7fb07a) }, uSoft: { value: 1 } };
 const sun = new THREE.DirectionalLight(0xfff0d8, 2.3);
 sun.position.set(1.5, 3, 2);
 scene.add(sun);
 
 let standMesh = null;
-const envOnly = []; // lo que se oculta en realidad mixta para ver la habitación real
-const env = buildEnvironment(C); // pradera, plataforma, árboles, montañas, nubes, astros
+// Dos entornos: el sencillo (predeterminado, liviano) y el detallado (pradera, árboles, montañas,
+// nubes, astros), que solo se construye si se activa en Ajustes.
+const envSimple = buildSimpleEnvironment(C);
+let envDetailed = null;
+let env = envSimple;
+let skyMesh = null;
 { // cielo en degradé
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(300, 24, 12),
     new THREE.ShaderMaterial({
       side: THREE.BackSide, fog: false, depthWrite: false, uniforms: skyUniforms,
-      vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: 'uniform vec3 uA; uniform vec3 uB; varying float h; void main(){ gl_FragColor = vec4(mix(uA,uB,smoothstep(-0.02,0.7,h)),1.0); }',
+      vertexShader: SKY_SHADER.vertexShader, fragmentShader: SKY_SHADER.fragmentShader,
     }));
   sky.renderOrder = -10;
-  scene.add(sky, env.group);
-  envOnly.push(sky, env.group);
+  skyMesh = sky;
+  scene.add(sky, envSimple.group);
   // pedestal torneado para la miniatura de referencia (también se ve en realidad mixta)
   const profile = [[0.125, 0], [0.13, 0.014], [0.095, 0.03], [0.045, 0.058], [0.028, 0.11], [0.022, 0.38], [0.034, 0.41], [0.034, 0.43],
     [0.021, 0.46], [0.019, 0.69], [0.03, 0.735], [0.1, 0.758], [0.118, 0.764], [0.118, PEDESTAL_Y], [0, PEDESTAL_Y]];
@@ -110,11 +114,20 @@ let model = buildBuiltin(FARO);
 // Modelo completo: en el menú se muestra grande; durante la partida es la miniatura de referencia.
 let showcase = null;
 let lifeShow = null, lifeGame = null; // efectos "vivos": del modelo del menú y de la partida
+// Miniatura de referencia (sobre el pedestal durante la partida): una versión simplificada, porque
+// el modelo entero dibujado otra vez duplicaría el trabajo del visor. A un 30 % del tamaño, los
+// detalles de menos de ~2 mm no se distinguen, así que se funden: queda entre un 10 y un 27 %.
+let miniMesh = null;
+const MINI_SCALE = 0.3, MINI_CELL = 0.002 / MINI_SCALE;
 function rebuildShowcase() {
   if (lifeShow) { lifeShow.dispose(); lifeShow = null; }
   if (showcase) { scene.remove(showcase); disposeMesh(showcase); }
+  if (miniMesh) { scene.remove(miniMesh); disposeMesh(miniMesh); }
   showcase = buildMesh(slice(model, 1, 1)[0]);
   scene.add(showcase);
+  miniMesh = buildMesh(slice(clusterSimplify(model, MINI_CELL), 1, 1)[0]);
+  miniMesh.visible = false;
+  scene.add(miniMesh);
   const host = { object: showcase, active: () => !state.inGame };
   lifeShow = buildLife(model.features || [], () => host);
 }
@@ -123,7 +136,9 @@ rebuildShowcase();
 // Miniaturas para las tarjetas del menú: se dibujan una vez y se guardan en el navegador.
 const APP_VERSION = $('version').textContent.trim();
 const THUMB_W = 360, THUMB_H = 270, THUMB_PREFIX = 'diorama3d-thumb:';
-const thumbKey = (pz) => `${THUMB_PREFIX}${APP_VERSION}:${pz.id}:${pz.mb || ''}`;
+const THUMB_REV = 2; // subirlo si cambia la forma de dibujar las miniaturas
+const hashText = (t) => { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+const thumbKey = (pz) => `${THUMB_PREFIX}${THUMB_REV}:${pz.id}:${pz.build ? hashText(pz.build.toString()) : pz.mb || ''}`;
 const thumbTools = (() => {
   const sc = new THREE.Scene();
   sc.add(new THREE.HemisphereLight(0xffffff, 0x8fa3b5, 1.7));
@@ -186,10 +201,12 @@ function saveThumb(pz, url) {
 let showRef = true;
 function placeShowcase() {
   if (state.inGame) {
-    showcase.scale.setScalar(0.3);
-    showcase.position.set(C.x, PEDESTAL_Y + model.size[1] / 2 * 0.3 + 0.004, C.z);
-    showcase.visible = showRef && !state.complete;
+    showcase.visible = false;
+    miniMesh.scale.setScalar(MINI_SCALE);
+    miniMesh.position.set(C.x, PEDESTAL_Y + model.size[1] / 2 * MINI_SCALE + 0.004, C.z);
+    miniMesh.visible = showRef && !state.complete;
   } else {
+    miniMesh.visible = false;
     showcase.scale.setScalar(1);
     showcase.position.copy(C);
     showcase.visible = true;
@@ -206,7 +223,7 @@ const sfx = new Sfx();
 const SETTINGS_KEY = 'diorama3d-settings-v1';
 const PHASES = [0, 0.25, 0.5, 0.75], PHASE_NAMES = ['mediodía', 'atardecer', 'noche', 'amanecer'];
 let fixedPhase = null; // modo explorar: hora elegida a mano
-const settings = { showTimer: false, dayNight: true, showFps: false, music: true, where: 'vr', whereChosen: false };
+const settings = { showTimer: false, dayNight: true, showFps: false, music: true, detailedEnv: false, where: 'vr', whereChosen: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* valores por defecto */ }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* nada */ } }
 const anims = new Set();   // mallas deslizándose a su sitio tras un encastre
@@ -635,6 +652,8 @@ const panel = (() => {
 })();
 let lastHudSec = -1;
 let fpsNow = 0, fpsFrames = 0, fpsTime = 0; // cuadros por segundo, promediados cada segundo
+let perfTris = 0, perfCalls = 0;          // triángulos y llamadas de dibujo del último cuadro (ambos ojos)
+const perfText = () => `${fpsNow} fps · ${Math.round(perfTris / 1000)} mil tri · ${perfCalls} llamadas`;
 function updateHud(force) {
   const sec = Math.floor(state.elapsed);
   if (!force && sec === lastHudSec) return;
@@ -645,7 +664,7 @@ function updateHud(force) {
   $('timer').textContent = fmtTime(state.elapsed);
   $('timer').classList.toggle('hidden', !settings.showTimer);
   $('fps').classList.toggle('hidden', !settings.showFps);
-  $('fps').textContent = `${fpsNow} fps`;
+  $('fps').textContent = perfText();
   const { ctx, cv, tex } = panel;
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = 'rgba(250,247,240,0.95)';
@@ -654,7 +673,7 @@ function updateHud(force) {
   ctx.font = '600 58px system-ui, sans-serif';
   ctx.fillText(state.inspect ? 'Modo explorar' : state.complete ? '¡Completado!' : prog, cv.width / 2, 84, cv.width - 40);
   ctx.font = '44px system-ui, sans-serif'; ctx.globalAlpha = 0.7;
-  const extra = [settings.showTimer ? fmtTime(state.elapsed) : '', settings.showFps ? `${fpsNow} fps` : ''].filter(Boolean).join(' · ');
+  const extra = [settings.showTimer ? fmtTime(state.elapsed) : '', settings.showFps ? perfText() : ''].filter(Boolean).join(' · ');
   ctx.fillText(extra ? `${model.name} · ${extra}` : model.name, cv.width / 2, 150, cv.width - 40);
   ctx.globalAlpha = 1;
   tex.needsUpdate = true;
@@ -1010,9 +1029,18 @@ function updateHands(dt) {
 // "immersive-ar" y el mundo virtual se muestra u oculta al instante (xrMixed), sin salir del visor.
 let xrMixed = false, xrOK = false, arOK = false, xrPassthrough = false;
 const SKY_COLOR = scene.background, SKY_FOG = scene.fog;
+// Muestra el entorno elegido (o ninguno en realidad mixta). El detallado se construye la primera vez.
+function applyEnvironment() {
+  if (settings.detailedEnv && !envDetailed) { envDetailed = buildEnvironment(C); scene.add(envDetailed.group); }
+  env = settings.detailedEnv ? envDetailed : envSimple;
+  skyMesh.visible = !xrMixed;
+  envSimple.group.visible = !xrMixed && env === envSimple;
+  if (envDetailed) envDetailed.group.visible = !xrMixed && env === envDetailed;
+  skyUniforms.uSoft.value = env === envSimple ? 1 : 0;
+}
 function setMixed(on) {
   xrMixed = on;
-  for (const o of envOnly) o.visible = !on;
+  applyEnvironment();
   scene.background = on ? null : SKY_COLOR;
   scene.fog = on ? null : SKY_FOG;
 }
@@ -1081,6 +1109,11 @@ function updateBar(dt) {
 }
 
 renderer.xr.addEventListener('sessionstart', () => {
+  // 72 cuadros por segundo dan un 25 % más de tiempo por cuadro que 90: más margen para modelos grandes
+  const ses = renderer.xr.getSession();
+  try {
+    if (ses && ses.updateTargetFrameRate && ses.supportedFrameRates && [...ses.supportedFrameRates].includes(72)) ses.updateTargetFrameRate(72).catch(() => {});
+  } catch (e) { /* el navegador no lo permite: queda su valor por defecto */ }
   if (drag) endDrag();
   hoverGroup = null;
   camera.clearViewOffset();
@@ -1195,7 +1228,7 @@ async function makeMissingThumbs() {
   try { // limpia miniaturas de versiones anteriores
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(THUMB_PREFIX) && !k.startsWith(THUMB_PREFIX + APP_VERSION + ':')) localStorage.removeItem(k);
+      if (k && k.startsWith(THUMB_PREFIX) && !k.startsWith(`${THUMB_PREFIX}${THUMB_REV}:`)) localStorage.removeItem(k);
     }
   } catch (e) { /* sin almacenamiento */ }
   for (const pz of DIORAMAS) {
@@ -1235,6 +1268,9 @@ $('mode-note').textContent = MODE_NOTES.relax;
 bindSeg('seg-where', (v) => { settings.where = v; settings.whereChosen = true; saveSettings(); });
 $('opt-timer').checked = settings.showTimer;
 $('opt-music').checked = settings.music;
+$('opt-env').checked = settings.detailedEnv;
+$('opt-env').addEventListener('change', (e) => { settings.detailedEnv = e.target.checked; saveSettings(); applyEnvironment(); });
+applyEnvironment();
 $('opt-music').addEventListener('change', (e) => { sfx.init(); settings.music = e.target.checked; saveSettings(); sfx.setMusicOn(settings.music); syncHud(); });
 // Música: el tema del rompecabezas elegido. En el menú suena a media intensidad, como anticipo;
 // el navegador solo deja empezar el audio tras un primer toque.
@@ -1375,8 +1411,10 @@ function updateSky(dt) {
   sun.color.copy(skyNow.sun); sun.intensity = skyNow.sunI;
   hemi.color.copy(skyNow.hemi); hemi.groundColor.copy(skyNow.ground); hemi.intensity = skyNow.hemiI;
   skyUniforms.uA.value.copy(skyNow.sky); skyUniforms.uB.value.copy(skyNow.top);
+  // colinas desenfocadas: verde suave teñido por el cielo, más oscuro de noche
+  skyUniforms.uG.value.setHex(0x86ad84).lerp(skyNow.sky, 0.4).multiplyScalar(1 - 0.62 * skyNow.night);
   SKY_COLOR.copy(skyNow.sky); SKY_FOG.color.copy(skyNow.sky);
-  env.update(dt, lifeT, dayPhase, skyNow.night, sun); // astros, nubes, faroles y dirección de la luz
+  env.update(dt, lifeT, dayPhase, skyNow.night, sun, skyUniforms.uG.value); // dirección de la luz (y en el detallado: astros, nubes, faroles)
 }
 function tick(time) {
   const dt = Math.min(Math.max((time - lastTime) / 1000, 0), 0.1);
@@ -1435,8 +1473,10 @@ function tick(time) {
   if (standMesh) standMesh.visible = !(state.complete && state.groups.size && [...state.groups][0].scale.x > 1.15);
   updateConfetti(dt);
 
-  if (showcase.visible) showcase.rotation.y += dt * (state.inGame ? 0.25 : 0.2);
+  if (showcase.visible) showcase.rotation.y += dt * 0.2;
+  if (miniMesh.visible) miniMesh.rotation.y += dt * 0.25;
   renderer.render(scene, camera);
+  perfTris = renderer.info.render.triangles; perfCalls = renderer.info.render.calls;
 }
 
 placeShowcase();
@@ -1446,7 +1486,7 @@ renderer.setAnimationLoop(tick);
 // Utilidades de depuración / pruebas automáticas: abrir con ?debug
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = {
-    state, layout, trySnap, inspectModel, inspectStep, nextPhase, toggleSpin, get dayPhase() { return dayPhase; }, zoomModel, resetModelSize, get sfx() { return sfx; }, get twoHand() { return twoHand; }, completedGroup, orbit, bar, env, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
+    state, layout, trySnap, inspectModel, inspectStep, nextPhase, toggleSpin, get dayPhase() { return dayPhase; }, zoomModel, resetModelSize, get sfx() { return sfx; }, get twoHand() { return twoHand; }, completedGroup, orbit, bar, get env() { return env; }, pressBar, enterXR, get xr() { return { xrMixed, xrOK, arOK, xrPassthrough }; }, studio(on) { env.group.visible = !on; if (on) camera.clearViewOffset(); else applyViewOffset(); }, get renderer() { return renderer; }, setDetailedEnv(on) { settings.detailedEnv = on; applyEnvironment(); }, setXR(o) { if ('passthrough' in o) xrPassthrough = o.passthrough; bar.refresh(); }, get showRef() { return showRef; }, setPhase(v) { dayPhase = v; }, get life() { return lifeGame; }, setMixed, scene, selectPuzzle, puzzles, get model() { return model; }, findSnap, camera, C, hands, grabVR, releaseVR, updateHands, THREE,
     pieceAt(x, y) { setRay({ clientX: x, clientY: y }); const h = pickPiece(); return h ? h.object.userData.piece.id : -1; },
     // une un par de grupos vecinos colocándolos casi en su sitio y dejando actuar al encastre
     solveStep() {
